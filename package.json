@@ -1,6 +1,6 @@
 {
   "name": "relayfold",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "productName": "Relayfold",
   "private": true,
   "description": "Windows 本地多账号视频分发台",

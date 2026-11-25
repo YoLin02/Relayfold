@@ -1,4 +1,4 @@
-import { History, Image, Send, UserRound, Video } from 'lucide-react';
+import { History, Image, MessageSquareText, Send, UserRound, Video } from 'lucide-react';
 import type { Binding, Draft, Group, GroupMode, Kind, PlatformRegion, PublishContent, Task, TaskStatus } from '@/types';
 
 export const contentKinds = {
@@ -36,6 +36,7 @@ export const navigation = [
   { id: 'publish', label: '新建发布', icon: Send },
   { id: 'accounts', label: '平台账号', icon: UserRound },
   { id: 'history', label: '发布记录', icon: History },
+  { id: 'comments', label: '评论', icon: MessageSquareText },
 ] as const;
 export type WorkspaceView = typeof navigation[number]['id'];
 export type View = WorkspaceView | 'settings';

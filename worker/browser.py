@@ -250,7 +250,7 @@ class Browser:
         except Exception:
             return
 
-    async def launch(self, binding, *, douyin_video=False):
+    async def launch(self, binding, *, douyin_video=False, headless=None, service_workers="allow"):
         async with self.start_lock:
             if douyin_video:
                 if self.patchright is None:
@@ -265,7 +265,8 @@ class Browser:
         profile.mkdir(parents=True, exist_ok=True)
         # Use installed Chrome and an app-owned directory with normal browser settings.
         context = await driver.chromium.launch_persistent_context(str(profile), channel="chrome",
-                                                                  headless=self.headless, timeout=25000)
+                                                                  headless=self.headless if headless is None else headless,
+                                                                  service_workers=service_workers, timeout=25000)
         self.contexts[binding["id"]] = context
         context.on("close", lambda _: self.contexts.pop(binding["id"], None)
                    if self.contexts.get(binding["id"]) is context else None)

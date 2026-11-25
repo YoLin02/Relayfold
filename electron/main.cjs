@@ -24,6 +24,7 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
     'accounts.check', 'accounts.add', 'accounts.replace', 'accounts.delete', 'accounts.configure', 'tasks.create', 'tasks.retry', 'tasks.review',
     'tasks.reschedule', 'tasks.cancelSchedule', 'tasks.diagnostics', 'tasks.history', 'tasks.delete',
     'settings.region', 'settings.theme',
+    'comments.notes', 'comments.list', 'comments.prepare', 'comments.send',
   ]);
 
   function notify() {

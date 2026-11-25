@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from adapters import api_identity, normalize_options, platform_settings, publish_api
 from browser import Browser, DouyinListedWork, DouyinRejected, RetainedDouyin
 from catalog import PLATFORMS
+from comment_workspace import CommentWorkspace
 from publish_content import IMAGE_EXTENSIONS, local_file, resolve_content
 import session_backup
 from store import Store, new_id, validate_schedule
@@ -54,6 +55,7 @@ class Worker:
         self.store = Store(root / "publisher.sqlite3")
         self.browser = browser_factory(self.profiles)
         self.locks = {}
+        self.comments = CommentWorkspace(self.store, self.browser, self.lock)
         self.followups = set()
         self.queued = asyncio.Event()
         self.queued.set()
@@ -377,6 +379,8 @@ class Worker:
             return await self.delete_task(args["id"])
         if method == "tasks.diagnostics":
             return self.store.task_diagnostics(args["id"])
+        if method in {"comments.notes", "comments.list", "comments.prepare", "comments.send"}:
+            return await self.comments.command(method, args)
         raise ValueError("本地 Worker 收到未知操作。")
 
     async def run_task(self, task):

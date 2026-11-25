@@ -1,7 +1,11 @@
 @import "./theme.css";
 
 @layer base {
-  * { @apply border-border outline-ring/50; }
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-color: #c9c9c9 transparent;
+    scrollbar-width: thin;
+  }
 
   body {
     @apply bg-background font-sans text-foreground;
@@ -28,9 +32,7 @@
 
 .workspace-window-header {
   padding-inline-end: max(1rem, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + .75rem));
-}
-
-.workspace-window-header {
+  min-height: env(titlebar-area-height, 0px);
   -webkit-app-region: drag;
   app-region: drag;
 }
@@ -48,6 +50,15 @@
 .workspace-panel {
   border: 1px solid color-mix(in oklch, var(--border) 58%, var(--background));
   box-shadow: 0 1px 2px rgb(0 0 0 / .035), 0 6px 20px rgb(0 0 0 / .035);
+}
+
+.comment-list-scroll {
+  min-height: 0;
+  flex: 1;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
 }
 
 .workspace-title {

@@ -6,16 +6,18 @@
 <p align="center"><strong>抖音、小红书、视频号等平台的一键群发工作台</strong></p>
 
 <p align="center">
-  <a href="https://github.com/YoLin02/Relayfold/releases/tag/v0.0.1"><img alt="发布版本 v0.0.1" src="https://img.shields.io/badge/release-v0.0.1-2563eb?style=flat"></a>
-  <a href="https://github.com/YoLin02/Relayfold/releases/download/v0.0.1/Relayfold-v0.0.1-Windows-x64.zip"><img alt="下载 Windows x64" src="https://img.shields.io/badge/download-Windows%20x64-0078d4?style=flat"></a>
+  <a href="https://github.com/YoLin02/Relayfold/releases/tag/v0.0.2"><img alt="发布版本 v0.0.2" src="https://img.shields.io/badge/release-v0.0.2-2563eb?style=flat"></a>
+  <a href="https://github.com/YoLin02/Relayfold/releases/download/v0.0.2/Relayfold-v0.0.2-Windows-x64.zip"><img alt="下载 Windows x64" src="https://img.shields.io/badge/download-Windows%20x64-0078d4?style=flat"></a>
   <img alt="Electron 和 React" src="https://img.shields.io/badge/UI-Electron%20%2B%20React-0891b2?style=flat">
   <img alt="Python Worker" src="https://img.shields.io/badge/worker-Python-3776ab?style=flat">
   <a href="#平台支持与验证"><img alt="24 个平台" src="https://img.shields.io/badge/platforms-24-6554c0?style=flat"></a>
   <a href="#平台支持与验证"><img alt="2 个平台已验证真实视频提交" src="https://img.shields.io/badge/live%20verified-2%20platforms-2e8b57?style=flat"></a>
+  <a href="#小红书评论"><img alt="小红书评论和回复已实测" src="https://img.shields.io/badge/RedNote%20comments-live%20verified-2e8b57?style=flat"></a>
 </p>
 
 <p align="center">
   <a href="#界面预览">界面预览</a> ·
+  <a href="#小红书评论">小红书评论</a> ·
   <a href="#平台支持与验证">平台支持与验证</a> ·
   <a href="#从源码启动">从源码启动</a> ·
   <a href="#技术栈">技术栈</a>
@@ -23,11 +25,11 @@
 
 Relayfold 是一款 Windows 本地发布工具，支持把视频、图文和文章一键群发到抖音、小红书、微信视频号、哔哩哔哩等平台。选一次素材，勾选多个平台账号，按需修改各平台的文案和封面，最后统一核对。账号会话、发布队列和历史保存在本机。
 
-**[下载 Windows x64 便携版](https://github.com/YoLin02/Relayfold/releases/download/v0.0.1/Relayfold-v0.0.1-Windows-x64.zip)**。完整解压后双击 `Relayfold.exe`。网页平台需要本机安装 Google Chrome。
+**[下载 Windows x64 便携版](https://github.com/YoLin02/Relayfold/releases/download/v0.0.2/Relayfold-v0.0.2-Windows-x64.zip)**。完整解压后双击 `Relayfold.exe`。网页平台需要本机安装 Google Chrome。
 
 ## 界面预览
 
-下面是 Relayfold v0.0.1 的实机截图，账号和素材均为演示数据。
+下面是 Relayfold 的实机截图，账号、素材和评论均为演示数据。
 
 ![Relayfold 发布工作台，左侧编辑素材和文案，右侧选择发布账号](docs/screenshots/publish-workspace.png)
 
@@ -41,7 +43,20 @@ Relayfold 是一款 Windows 本地发布工具，支持把视频、图文和文�
 - **视频、图文和文章群发**。抖音和小红书可分别覆盖通用标题、正文、标签和封面。确认页逐一核对目标账号和最终内容。
 - **定时发布与托盘常驻**。预约支持改期和取消。关窗后继续从托盘运行，电脑须保持唤醒并联网。预约时间是开始处理的时间，作品公开时间取决于上传和审核。
 - **发布记录与诊断**。按日期筛选、查看回执或诊断、删除本地记录。平台确认收稿时显示「已提交」，提交结果不明确时显示「待核对」。
+- **小红书评论**。同步账号近期笔记，逐篇查看评论并以原账号回复。
 - **工作台设置**。可切换国内或国外平台、主题色，使用 `Ctrl+K` 搜索账号、发布组和页面。
+
+## 小红书评论
+
+**已使用真实小红书账号验证笔记同步、评论读取和回复提交。** 实测可以读到小红书账号主页上没有 Relayfold 发布记录的笔记，回复已获得平台确认。发送途中切组使用隔离桌面测试验收，仍由原绑定账号回复原评论。
+
+![小红书评论页，左侧笔记和右侧评论独立滚动](docs/screenshots/xiaohongshu-comments.png)
+
+1. 打开「评论」，选定已绑定的小红书账号，点击「同步笔记」。
+2. 在「我的笔记」点开一篇，右侧加载该笔记的首批一级评论。
+3. 点某条评论的「回复」，核对发送账号、原评论和回复正文后，再点「确认发送」。
+
+两栏的头部与账号操作区固定，笔记和评论列表各自滚动。平台确认后显示「已回复」，提交结果不明确时可到原笔记核对。
 
 ## 平台支持与验证
 
@@ -111,4 +126,4 @@ npm run test:e2e
 
 ## 规划
 
-**评论收件箱**处于调研阶段。计划先聚合抖音和小红书自有作品的评论，按账号和作品筛选，以原作品所属账号手动回复，并核对平台回执。
+评论页已支持小红书。跨平台评论收件箱仍在规划中。
