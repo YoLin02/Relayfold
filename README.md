@@ -3,25 +3,37 @@
 </p>
 
 <h1 align="center">Relayfold</h1>
-<p align="center"><strong>Windows 本地多账号内容分发工作台</strong></p>
+<p align="center"><strong>抖音、小红书、视频号等平台的一键群发工作台</strong></p>
 
 <p align="center">
-  <a href="https://github.com/YoLin02/Relayfold/tree/v0.0.1"><img alt="版本 v0.0.1" src="https://img.shields.io/badge/version-v0.0.1-2563eb?style=flat"></a>
-  <img alt="Windows x64" src="https://img.shields.io/badge/desktop-Windows%20x64-0078d4?style=flat">
+  <a href="https://github.com/YoLin02/Relayfold/releases/tag/v0.0.1"><img alt="发布版本 v0.0.1" src="https://img.shields.io/badge/release-v0.0.1-2563eb?style=flat"></a>
+  <a href="https://github.com/YoLin02/Relayfold/releases/download/v0.0.1/Relayfold-v0.0.1-Windows-x64.zip"><img alt="下载 Windows x64" src="https://img.shields.io/badge/download-Windows%20x64-0078d4?style=flat"></a>
   <img alt="Electron 和 React" src="https://img.shields.io/badge/UI-Electron%20%2B%20React-0891b2?style=flat">
   <img alt="Python Worker" src="https://img.shields.io/badge/worker-Python-3776ab?style=flat">
-  <a href="#平台支持与验证"><img alt="26 个平台入口" src="https://img.shields.io/badge/targets-26-6554c0?style=flat"></a>
+  <a href="#平台支持与验证"><img alt="24 个平台" src="https://img.shields.io/badge/platforms-24-6554c0?style=flat"></a>
   <a href="#平台支持与验证"><img alt="2 个平台已验证真实视频提交" src="https://img.shields.io/badge/live%20verified-2%20platforms-2e8b57?style=flat"></a>
 </p>
 
 <p align="center">
-  <a href="#主要功能">主要功能</a> ·
+  <a href="#界面预览">界面预览</a> ·
   <a href="#平台支持与验证">平台支持与验证</a> ·
   <a href="#从源码启动">从源码启动</a> ·
   <a href="#技术栈">技术栈</a>
 </p>
 
-Relayfold 把账号绑定、素材编辑、差异化群发和发布记录放在一个桌面应用里。选一次素材，勾选多个平台账号，按需修改各平台的内容，最后统一核对并提交。账号会话、发布队列和历史保存在本机。
+Relayfold 是一款 Windows 本地发布工具，支持把视频、图文和文章一键群发到抖音、小红书、微信视频号、哔哩哔哩等平台。选一次素材，勾选多个平台账号，按需修改各平台的文案和封面，最后统一核对。账号会话、发布队列和历史保存在本机。
+
+**[下载 Windows x64 便携版](https://github.com/YoLin02/Relayfold/releases/download/v0.0.1/Relayfold-v0.0.1-Windows-x64.zip)**。完整解压后双击 `Relayfold.exe`。网页平台需要本机安装 Google Chrome。
+
+## 界面预览
+
+下面是 Relayfold v0.0.1 的实机截图，账号和素材均为演示数据。
+
+![Relayfold 发布工作台，左侧编辑素材和文案，右侧选择发布账号](docs/screenshots/publish-workspace.png)
+
+| 平台账号 | 群发前核对 |
+| --- | --- |
+| [![按内容类型筛选平台账号](docs/screenshots/platform-accounts.png)](docs/screenshots/platform-accounts.png) | [![并排核对抖音和小红书文案](docs/screenshots/publish-review.png)](docs/screenshots/publish-review.png) |
 
 ## 主要功能
 
@@ -33,38 +45,36 @@ Relayfold 把账号绑定、素材编辑、差异化群发和发布记录放在�
 
 ## 平台支持与验证
 
-下表列出源码中可选的 **26 个发布入口**。真实验证按内容类型记录，平台回执表示确认提交，公开状态以平台审核为准。
+下表列出 **24 个平台**。真实验证按内容类型记录，平台回执表示确认提交，公开状态以平台审核为准。
 
-| 范围 | 平台 | 内容 | 验证 |
-| --- | --- | --- | --- |
-| 国内 | 抖音 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
-| 国内 | 小红书 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
-| 国内 | 快手 | 视频 | 已接入 · 待真实验证 |
-| 国内 | 微信视频号 | 视频 | 已接入 · 待真实验证 |
-| 国内 | 哔哩哔哩 | 视频 | 已接入 · 待真实验证 |
-| 国内 | 知乎 | 文章 | 已接入 · 待真实验证 |
-| 国内 | 头条号 | 文章 | 已接入 · 待真实验证 |
-| 国内 | CSDN | 文章 | 已接入 · 待真实验证 |
-| 国内 | 简书 | 文章 | 已接入 · 待真实验证 |
-| 国内 | 搜狐号 | 文章 | 已接入 · 待真实验证 |
-| 国内 | 微信公众号 | 文章草稿 | 已接入 · 待真实验证 |
-| 国内 | 百家号 | 文章 | 已接入 · 待真实验证 |
-| 国内 | 网易号 | 文章 | 已接入 · 待真实验证 |
-| 国外 | TikTok | 视频 | 已接入 · 待真实验证 |
-| 国外 | YouTube | 视频 | 已接入 · 待真实验证 |
-| 国外 | Facebook | 视频 | 已接入 · 待真实验证 |
-| 国外 | Instagram | 视频 | 已接入 · 待真实验证 |
-| 国外 | X / Twitter | 视频 | 已接入 · 待真实验证 |
-| 国外 | Reddit | 文章 | 已接入 · 待真实验证 |
-| 国外 | Medium | 文章 | 已接入 · 待真实验证 |
-| 国外 | LinkedIn | 文章 | 已接入 · 待真实验证 |
-| 国外 | Blogger | 文章 | 已接入 · 待真实验证 |
-| 国外 | Quora | 文章 | 已接入 · 待真实验证 |
-| 国外 | DEV Community | 文章 | 已接入 · 待真实验证 |
-| 自定义 | 企业官网 · 网页 CMS | 文章 | 已接入 · 待真实验证 |
-| 自定义 | 企业官网 · API | 文章 | 已接入 · 待真实验证 |
+| 平台 | 内容 | 验证 |
+| --- | --- | --- |
+| 抖音 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
+| 小红书 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
+| 快手 | 视频 | 已接入 · 待真实验证 |
+| 微信视频号 | 视频 | 已接入 · 待真实验证 |
+| 哔哩哔哩 | 视频 | 已接入 · 待真实验证 |
+| 知乎 | 文章 | 已接入 · 待真实验证 |
+| 头条号 | 文章 | 已接入 · 待真实验证 |
+| CSDN | 文章 | 已接入 · 待真实验证 |
+| 简书 | 文章 | 已接入 · 待真实验证 |
+| 搜狐号 | 文章 | 已接入 · 待真实验证 |
+| 微信公众号 | 文章草稿 | 已接入 · 待真实验证 |
+| 百家号 | 文章 | 已接入 · 待真实验证 |
+| 网易号 | 文章 | 已接入 · 待真实验证 |
+| TikTok | 视频 | 已接入 · 待真实验证 |
+| YouTube | 视频 | 已接入 · 待真实验证 |
+| Facebook | 视频 | 已接入 · 待真实验证 |
+| Instagram | 视频 | 已接入 · 待真实验证 |
+| X / Twitter | 视频 | 已接入 · 待真实验证 |
+| Reddit | 文章 | 已接入 · 待真实验证 |
+| Medium | 文章 | 已接入 · 待真实验证 |
+| LinkedIn | 文章 | 已接入 · 待真实验证 |
+| Blogger | 文章 | 已接入 · 待真实验证 |
+| Quora | 文章 | 已接入 · 待真实验证 |
+| DEV Community | 文章 | 已接入 · 待真实验证 |
 
-微信公众号任务写入草稿，最终群发在公众号后台完成。自定义官网入口需配置自己的 CMS。
+微信公众号任务写入草稿，最终群发在公众号后台完成。
 
 ## 从源码启动
 
