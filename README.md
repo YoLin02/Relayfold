@@ -1,47 +1,104 @@
 <p align="center">
-  <img src="assets/relayfold-mark.png" width="92" height="92" alt="Relayfold 图标">
+  <img src="src/assets/relayfold-mark.png" width="96" height="96" alt="Relayfold 图标">
 </p>
 
 <h1 align="center">Relayfold</h1>
+<p align="center"><strong>Windows 本地多账号内容分发工作台</strong></p>
 
-<p align="center">面向 Windows 的本地多账号内容分发工作台</p>
-<p align="center"><strong>v0.0.1</strong> · Windows · Electron + React + Python</p>
+<p align="center">
+  <a href="https://github.com/YoLin02/Relayfold/tree/v0.0.1"><img alt="版本 v0.0.1" src="https://img.shields.io/badge/version-v0.0.1-2563eb?style=flat"></a>
+  <img alt="Windows x64" src="https://img.shields.io/badge/desktop-Windows%20x64-0078d4?style=flat">
+  <img alt="Electron 和 React" src="https://img.shields.io/badge/UI-Electron%20%2B%20React-0891b2?style=flat">
+  <img alt="Python Worker" src="https://img.shields.io/badge/worker-Python-3776ab?style=flat">
+  <a href="#平台支持与验证"><img alt="26 个平台入口" src="https://img.shields.io/badge/targets-26-6554c0?style=flat"></a>
+  <a href="#平台支持与验证"><img alt="2 个平台已验证真实视频提交" src="https://img.shields.io/badge/live%20verified-2%20platforms-2e8b57?style=flat"></a>
+</p>
 
-Relayfold 把账号绑定、素材编辑、差异化群发和发布记录放在一个桌面应用里。创作者可在同一个工作台管理抖音、小红书等平台的多个账号，上传一次素材，按平台调整文案，核对目标后统一提交。
+<p align="center">
+  <a href="#主要功能">主要功能</a> ·
+  <a href="#平台支持与验证">平台支持与验证</a> ·
+  <a href="#从源码启动">从源码启动</a> ·
+  <a href="#技术栈">技术栈</a>
+</p>
 
-## 已有功能
+Relayfold 把账号绑定、素材编辑、差异化群发和发布记录放在一个桌面应用里。选一次素材，勾选多个平台账号，按需修改各平台的内容，最后统一核对并提交。账号会话、发布队列和历史保存在本机。
 
-| 功能 | 使用方式 |
+## 主要功能
+
+- **多账号与发布组**。常规组每个平台可绑定一个账号。自定义组可添加同一平台的多个账号，各自保存登录态。入队后切组，任务继续使用创建时选定的账号。
+- **视频、图文和文章群发**。抖音和小红书可分别覆盖通用标题、正文、标签和封面。确认页逐一核对目标账号和最终内容。
+- **定时发布与托盘常驻**。预约支持改期和取消。关窗后继续从托盘运行，电脑须保持唤醒并联网。预约时间是开始处理的时间，作品公开时间取决于上传和审核。
+- **发布记录与诊断**。按日期筛选、查看回执或诊断、删除本地记录。平台确认收稿时显示「已提交」，提交结果不明确时显示「待核对」。
+- **工作台设置**。可切换国内或国外平台、主题色，使用 `Ctrl+K` 搜索账号、发布组和页面。
+
+## 平台支持与验证
+
+下表列出源码中可选的 **26 个发布入口**。真实验证按内容类型记录，平台回执表示确认提交，公开状态以平台审核为准。
+
+| 范围 | 平台 | 内容 | 验证 |
+| --- | --- | --- | --- |
+| 国内 | 抖音 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
+| 国内 | 小红书 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
+| 国内 | 快手 | 视频 | 已接入 · 待真实验证 |
+| 国内 | 微信视频号 | 视频 | 已接入 · 待真实验证 |
+| 国内 | 哔哩哔哩 | 视频 | 已接入 · 待真实验证 |
+| 国内 | 知乎 | 文章 | 已接入 · 待真实验证 |
+| 国内 | 头条号 | 文章 | 已接入 · 待真实验证 |
+| 国内 | CSDN | 文章 | 已接入 · 待真实验证 |
+| 国内 | 简书 | 文章 | 已接入 · 待真实验证 |
+| 国内 | 搜狐号 | 文章 | 已接入 · 待真实验证 |
+| 国内 | 微信公众号 | 文章草稿 | 已接入 · 待真实验证 |
+| 国内 | 百家号 | 文章 | 已接入 · 待真实验证 |
+| 国内 | 网易号 | 文章 | 已接入 · 待真实验证 |
+| 国外 | TikTok | 视频 | 已接入 · 待真实验证 |
+| 国外 | YouTube | 视频 | 已接入 · 待真实验证 |
+| 国外 | Facebook | 视频 | 已接入 · 待真实验证 |
+| 国外 | Instagram | 视频 | 已接入 · 待真实验证 |
+| 国外 | X / Twitter | 视频 | 已接入 · 待真实验证 |
+| 国外 | Reddit | 文章 | 已接入 · 待真实验证 |
+| 国外 | Medium | 文章 | 已接入 · 待真实验证 |
+| 国外 | LinkedIn | 文章 | 已接入 · 待真实验证 |
+| 国外 | Blogger | 文章 | 已接入 · 待真实验证 |
+| 国外 | Quora | 文章 | 已接入 · 待真实验证 |
+| 国外 | DEV Community | 文章 | 已接入 · 待真实验证 |
+| 自定义 | 企业官网 · 网页 CMS | 文章 | 已接入 · 待真实验证 |
+| 自定义 | 企业官网 · API | 文章 | 已接入 · 待真实验证 |
+
+微信公众号任务写入草稿，最终群发在公众号后台完成。自定义官网入口需配置自己的 CMS。
+
+## 从源码启动
+
+需要 Windows x64、Node.js 22.12+、Python 3.11+ 和 Google Chrome。
+
+```powershell
+git clone https://github.com/YoLin02/Relayfold.git
+cd Relayfold
+npm ci
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r worker\requirements.txt
+$env:ZT_PYTHON = (Resolve-Path '.\.venv\Scripts\python.exe').Path
+npm run build
+npm start
+```
+
+开发时可将 `ZT_PUBLISHER_DATA_DIR` 指向独立目录，隔离浏览器会话与测试发布记录。Windows x64 打包版可通过本机环境变量 `RELAYFOLD_UPDATE_SSH_HOST`、`RELAYFOLD_UPDATE_SSH_DIRECTORY` 和 `RELAYFOLD_UPDATE_PUBLIC_KEY` 启用签名更新。
+
+运行本地测试
+
+```powershell
+& $env:ZT_PYTHON -B -m unittest discover -s tests -p '*_test.py'
+npm run test:e2e
+```
+
+## 技术栈
+
+| 模块 | 实现 |
 | --- | --- |
-| 多账号管理 | 常规组每个平台可绑定一个账号。自定义组可添加同一平台的多个账号，每个账号独立保存登录态。 |
-| 差异化群发 | 选择一次素材，在通用模板填标题、正文、标签和封面，再为抖音、小红书单独覆盖需要修改的字段。发布前可核对各目标的最终内容。 |
-| 视频、图文与文章 | 支持视频、多图和长文章，按内容类型筛选可用平台。国内平台和国外平台可在设置中切换。微信公众号适配器将文章保存为平台草稿。 |
-| 定时发布 | 预约时固定当次素材、内容和目标账号。进入 Windows 托盘后可继续运行，待执行任务支持改期与取消。 |
-| 发布记录 | 按日期筛选、查看任务状态和诊断、删除本地记录。有作品回执时保留回执，提交结果不明确时标为「待核对」。 |
+| `electron/` | Electron、IPC、Windows 托盘和本地 Worker 管理 |
+| `src/` | React 19、TypeScript、Vite、Tailwind CSS v4、shadcn/ui v4、Radix UI、Lucide |
+| `worker/` | Python、Playwright、Patchright 1.64.4，按平台封装网页流程或 API |
+| 本地数据 | SQLite 记录发布组、任务和回执。浏览器会话按绑定账号隔离，登录态备份使用 Windows DPAPI |
 
-定时任务需要电脑保持唤醒、联网，且 Relayfold 正在运行。预约时间是本机开始处理的时间，作品公开时间取决于平台上传与审核。
+## 规划
 
-## 技术栈与实现
-
-| 模块 | 技术与实现 |
-| --- | --- |
-| Windows 桌面 | Electron 管理窗口、系统托盘和本地 Worker。渲染进程通过 preload 暴露的 IPC 接口调用桌面能力。 |
-| 前端 | React 19、TypeScript、Vite、Tailwind CSS v4、shadcn/ui v4（Radix Nova + Neutral）和 Lucide。 |
-| 发布 Worker | Python 3.11+ 按平台适配发布流程。网页平台使用 Playwright，抖音视频适配使用 Patchright 1.64.4。部分平台使用各自的 API。 |
-| 本地存储 | SQLite 保存账号组、绑定、任务和回执。浏览器会话按账号绑定隔离，登录态备份由 Windows DPAPI 保护。 |
-
-确认发布时，Worker 把具体账号绑定 ID 和已核对的内容写入任务。切组只改变当前工作台的视图，排队、定时或进行中的任务继续使用入队时选定的账号。回执用于关联平台作品，也能为后续的评论收件箱提供作品入口。
-
-## 规划中的评论收件箱
-
-首期覆盖已绑定账号在抖音和小红书发布的自有作品。按账号组、平台、具体账号和作品筛选评论，选中一条后在应用内以作品所属账号手动回复。
-
-- 抖音优先验证官方视频评论读取与回复权限。
-- 小红书验证现有扫码绑定在网页端读取和回复自有笔记评论的能力。
-- 仅在收到平台确认或回读到回复后标为「已回复」。结果不明确时保留「待核对」。
-
-## 上游参考
-
-- 抖音视频上传流程参考 [social-auto-upload](https://github.com/dreammis/social-auto-upload)。
-- 桌面进程边界和发布结果确认流程参考 [MultiPublish](https://github.com/whut09/MultiPublish)。
-- 小红书评论适配调研参考 [xiaohongshu-mcp](https://github.com/xpzouying/xiaohongshu-mcp)。
+**评论收件箱**处于调研阶段。计划先聚合抖音和小红书自有作品的评论，按账号和作品筛选，以原作品所属账号手动回复，并核对平台回执。

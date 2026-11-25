@@ -1,0 +1,167 @@
+@import "./theme.css";
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+
+  body {
+    @apply bg-background font-sans text-foreground;
+    font-synthesis: none;
+  }
+
+  button:not(:disabled), [role="checkbox"]:not([data-disabled]), select:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+.publisher-shell {
+  --sidebar: var(--workspace-sidebar, color-mix(in oklch, var(--background) 97%, var(--foreground)));
+  --sidebar-accent: var(--workspace-selection, color-mix(in oklch, var(--background) 93%, var(--foreground)));
+}
+
+.workspace-stage {
+  background: var(--workspace-page, color-mix(in oklch, var(--background) 99%, var(--foreground)));
+}
+
+.theme-option-swatch {
+  background: linear-gradient(135deg, var(--theme-primary) 50%, var(--theme-soft) 50%);
+}
+
+.workspace-window-header {
+  padding-inline-end: max(1rem, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + .75rem));
+}
+
+.workspace-window-header {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+@utility workspace-window-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.workspace-window-header :is(button, a, input, select) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.workspace-panel {
+  border: 1px solid color-mix(in oklch, var(--border) 58%, var(--background));
+  box-shadow: 0 1px 2px rgb(0 0 0 / .035), 0 6px 20px rgb(0 0 0 / .035);
+}
+
+.workspace-title {
+  font-size: clamp(1.5rem, 1.2rem + .65vw, 1.75rem);
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.workspace-segmented[data-slot="tabs-list"] {
+  height: 2.25rem;
+  gap: .125rem;
+  padding: .1875rem;
+}
+
+.workspace-segmented [data-slot="tabs-trigger"] {
+  height: 100%;
+  min-width: 3.75rem;
+  gap: .5rem;
+  padding-inline: .625rem;
+  border-radius: var(--radius-md);
+  transition-property: background-color, color, box-shadow;
+}
+
+.workspace-segmented [data-state="active"] {
+  font-weight: 600;
+}
+
+.workspace-segmented [data-state="inactive"]:hover {
+  background: color-mix(in oklch, var(--background) 65%, transparent);
+}
+
+.workspace-editor-tabs[data-slot="tabs-list"] {
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  padding: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: thin;
+}
+
+.workspace-editor-tabs [data-slot="tabs-trigger"] {
+  flex: none;
+  height: 2.25rem;
+  gap: .5rem;
+  padding: 0 .625rem;
+  border: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  transition-property: background-color, color;
+}
+
+.workspace-editor-tabs [data-slot="tabs-trigger"]:hover {
+  background: var(--muted);
+}
+
+.workspace-editor-tabs [data-slot="tabs-trigger"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -3px;
+  box-shadow: none;
+}
+
+.workspace-editor-tabs [data-slot="tabs-trigger"]::after {
+  inset-inline: .625rem;
+  bottom: 0;
+  border-radius: .125rem .125rem 0 0;
+  background: var(--workspace-tab-underline, var(--foreground));
+}
+
+.workspace-editor-tabs [data-state="active"] {
+  font-weight: 600;
+  color: var(--workspace-accent-ink, var(--foreground));
+}
+
+.account-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "platform status" "alias action" "kinds action";
+  gap: .375rem .75rem;
+  border: 1px solid color-mix(in oklch, var(--border) 58%, transparent);
+}
+
+.account-card:nth-child(even) {
+  background: color-mix(in oklch, var(--muted) 65%, var(--card));
+  border-color: transparent;
+}
+
+.account-card:hover {
+  background: var(--muted);
+}
+
+.account-platform { grid-area: platform; }
+.account-alias { grid-area: alias; padding-inline-start: 2.125rem; }
+.account-kinds { grid-area: kinds; padding-inline-start: 2.125rem; }
+.account-status { grid-area: status; justify-self: end; }
+.account-action { grid-area: action; justify-self: end; }
+
+@container (min-width: 40rem) {
+  .account-card {
+    grid-template-columns: minmax(8rem, 1.2fr) minmax(6rem, 1.08fr) minmax(6rem, 1fr) minmax(6rem, .9fr) 8.5rem;
+    grid-template-areas: "platform alias kinds status action";
+  }
+  .account-alias, .account-kinds { padding-inline-start: 0; }
+  .account-status { justify-self: start; }
+}
+
+@media (min-width: 640px) {
+  .review-card {
+    display: grid;
+    grid-row: span 5;
+    grid-template-rows: subgrid;
+    margin-bottom: .25rem;
+  }
+  .review-details {
+    grid-row: span 4;
+    grid-template-rows: subgrid;
+  }
+}

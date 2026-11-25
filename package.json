@@ -1,0 +1,40 @@
+{
+  "name": "relayfold",
+  "version": "0.0.1",
+  "productName": "Relayfold",
+  "private": true,
+  "description": "Windows 本地多账号视频分发台",
+  "main": "electron/bootstrap.cjs",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "start": "electron .",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "5.3.0",
+    "@fontsource-variable/noto-sans-sc": "5.3.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "1.1.1",
+    "lucide-react": "^0.577.0",
+    "radix-ui": "^1.4.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@tailwindcss/vite": "^4.2.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "electron": "45.4.1",
+    "resedit": "3.1.1",
+    "shadcn": "4.23.0",
+    "tailwindcss": "^4.2.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.0"
+  }
+}
