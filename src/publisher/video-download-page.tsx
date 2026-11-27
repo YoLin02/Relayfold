@@ -73,7 +73,7 @@ export function VideoDownloadPage({ workspace }: { workspace: PublisherWorkspace
           <FolderOpen data-icon="inline-start" />打开文件夹
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={() => workspace.processDownloadedVideo(asset.id)}>
-          送到视频处理<ArrowRight data-icon="inline-end" />
+          送去提取字幕<ArrowRight data-icon="inline-end" />
         </Button>
       </div>}
       {active && <Button type="button" variant="ghost" size="sm"

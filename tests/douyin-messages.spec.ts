@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron, expect, test } from '@playwright/test';
+import { selectGroup } from './workspace-navigation';
 import type { State } from '../src/types';
 
 test('Douyin messages use official destinations and keep local drafts isolated by binding', async ({}, testInfo) => {
@@ -30,13 +31,13 @@ test('Douyin messages use official destinations and keep local drafts isolated b
     const draftPath = path.join(dataDir, 'profiles', binding.id, 'douyin-message-draft.dat');
     expect((await readFile(draftPath)).includes(Buffer.from('只属于演示抖音 A 的草稿'))).toBe(false);
 
-    await page.getByRole('button', { name: '账号 B', exact: true }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByRole('button', { name: '切换抖音账号' })).toContainText('演示抖音 B');
     await expect(draft).toHaveValue('');
     await expect(page.evaluate(binding_id => window.publisher.request<State>('state').then(s =>
       window.publisher.request('messages.douyinDraft', { group_id: s.active_group_id, binding_id })), binding.id))
       .rejects.toThrow('请在原发布组选择对应的抖音账号。');
-    await page.getByRole('button', { name: '账号 A', exact: true }).click();
+    await selectGroup(page, '账号 A');
     await expect(draft).toHaveValue('只属于演示抖音 A 的草稿');
 
     await page.getByRole('tab', { name: '评论', exact: true }).click();
@@ -84,9 +85,10 @@ test('the official Douyin pane follows its account and grants only opted-in site
     });
     const alerts = page.getByRole('checkbox', { name: '允许网页通知' });
     expect(await check()).toMatchObject({ count: 1, permissions: { notifications: 'denied', bridge: 'undefined', node: 'undefined' } });
-    await alerts.check();
+    await alerts.click();
+    await expect(alerts).toBeChecked();
     await expect.poll(check).toMatchObject({ count: 1, permissions: { notifications: 'granted' } });
-    await page.getByRole('button', { name: '账号 B', exact: true }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByRole('button', { name: '在 Relayfold 中打开' })).toBeVisible();
     await expect.poll(check).toEqual({ count: 0, permissions: null });
     await page.getByRole('button', { name: '在 Relayfold 中打开' }).click();

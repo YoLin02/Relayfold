@@ -13,16 +13,26 @@ import { AccountsPage, HistoryPage } from './publisher/records-pages';
 import { SettingsPage } from './publisher/settings-page';
 import { MessagesPage } from './publisher/messages-page';
 import { VideoDownloadPage } from './publisher/video-download-page';
-import { VideoProcessingPage } from './publisher/video-processing-page';
+import { SubtitleToolPage } from './publisher/video-processing-page';
+import { VoiceWorkspace } from './publisher/voice-workspace';
+import { WorkbenchPage } from './publisher/workbench-page';
 import { usePublisherWorkspace, type PublisherWorkspace } from './publisher/use-workspace';
 import { WorkspaceDialogs } from './publisher/workspace-dialogs';
 import { WorkspaceSidebar } from './publisher/workspace-sidebar';
-import { ErrorNotice, WorkspaceBrand } from './publisher/workspace-ui';
-import { navigation } from './publisher/model';
+import { ErrorNotice, WorkspaceBrand, WorkspaceHeading } from './publisher/workspace-ui';
+import { editingTools, navigation } from './publisher/model';
 import { WorkspaceUtilities } from './publisher/workspace-utilities';
 
+function VoicePage() {
+  return <>
+    <WorkspaceHeading title="配音与音色" description="使用本地模型克隆并保存音色，生成可导出的配音。" />
+    <VoiceWorkspace />
+  </>;
+}
+
 const pages = {
-  'video-download': VideoDownloadPage, 'video-processing': VideoProcessingPage,
+  workbench: WorkbenchPage, 'video-download': VideoDownloadPage,
+  'subtitle-extract': SubtitleToolPage, 'script-review': SubtitleToolPage, 'subtitle-synthesis': SubtitleToolPage, voice: VoicePage,
   publish: PublishPage, accounts: AccountsPage, history: HistoryPage, comments: MessagesPage, settings: SettingsPage,
 };
 
@@ -36,8 +46,9 @@ function WorkspaceHeader({ workspace }: { workspace: PublisherWorkspace }) {
       <Separator orientation="vertical" className="data-[orientation=vertical]:h-4" />
       <Breadcrumb className="min-w-0">
         <BreadcrumbList className="flex-nowrap">
-          <BreadcrumbItem className="hidden shrink-0 sm:inline-flex">工作台</BreadcrumbItem>
-          <BreadcrumbSeparator className="hidden sm:list-item" />
+          {view !== 'workbench' && <><BreadcrumbItem className="hidden shrink-0 sm:inline-flex">
+            {editingTools.some(item => item.id === view) ? '剪辑工具' : '工作台'}
+          </BreadcrumbItem><BreadcrumbSeparator className="hidden sm:list-item" /></>}
           <BreadcrumbItem className="min-w-0"><BreadcrumbPage className="truncate font-medium">{title}</BreadcrumbPage></BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
@@ -62,9 +73,9 @@ export function App() {
   const { state, group, othersInProgress } = workspace;
   const Page = pages[state.view];
   const viewport = useRef<HTMLDivElement>(null);
-  const contained = state.view === 'comments' || state.view === 'video-processing';
+  const contained = state.view === 'comments' || Page === SubtitleToolPage;
 
-  useEffect(() => { viewport.current?.scrollTo(0, 0); }, [state.view, group?.id]);
+  useEffect(() => { viewport.current?.scrollTo(0, 0); }, [state.view]);
   useLayoutEffect(() => {
     document.documentElement.dataset.accentTheme = workspace.visibleTheme;
   }, [workspace.visibleTheme]);

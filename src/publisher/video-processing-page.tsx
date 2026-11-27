@@ -1,9 +1,8 @@
-import { Captions, Film, FolderOpen } from 'lucide-react';
+import { Captions, FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { CaptionEditor } from './caption-editor';
 import { errorMessage, fileName } from './model';
@@ -12,13 +11,15 @@ import type { PublisherWorkspace } from './use-workspace';
 import { durationLabel, sourceLabels, useMaterialSnapshot, type MaterialAsset } from './video-materials';
 import { ErrorNotice, WorkspaceHeading, WorkspaceSelect } from './workspace-ui';
 
-export function VideoProcessingPage({ workspace }: { workspace: PublisherWorkspace }) {
+export function SubtitleToolPage({ workspace }: { workspace: PublisherWorkspace }) {
   const { snapshot, error: loadError } = useMaterialSnapshot();
   const [pending, setPending] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState('');
   const processing = workspace.state.videoProcessing;
-  const id = processing.tool === 'extract' ? processing.extractId : processing.synthesizeId;
+  const synthesis = workspace.state.view === 'subtitle-synthesis';
+  const review = workspace.state.view === 'script-review';
+  const id = synthesis ? processing.synthesizeId : processing.extractId;
   const asset = snapshot?.assets.find(item => item.id === id);
   const options = (snapshot?.assets ?? []).filter(item => item.available || item.id === id).map(item => ({
     value: item.id, label: item.title + ' · ' + sourceLabels[item.source] + (item.available ? '' : ' · 文件缺失'),
@@ -26,8 +27,12 @@ export function VideoProcessingPage({ workspace }: { workspace: PublisherWorkspa
   const dimensions = asset?.width && asset?.height ? asset.width + ' × ' + asset.height : '';
 
   function selectVideo(id: string) {
-    workspace.changeVideoProcessing(processing.tool === 'extract' ? { extractId: id } : { synthesizeId: id });
+    workspace.changeVideoProcessing(synthesis ? { synthesizeId: id } : { extractId: id });
   }
+
+  const heading = synthesis ? ['合成字幕', '为目标视频添加已保存的字幕或本地 SRT。']
+    : review ? ['脚本核对', '将 Word 原稿与视频字幕并排核对。']
+    : ['提取字幕', '提取已有文字字幕或从音轨识别，再校对字幕时间轴。'];
 
   async function importVideo(paths?: string[]) {
     setError('');
@@ -45,15 +50,7 @@ export function VideoProcessingPage({ workspace }: { workspace: PublisherWorkspa
   }
 
   return <>
-    <WorkspaceHeading title="视频处理" description="提取字幕、校对时间轴，或为另一条视频添加字幕。" />
-    <Tabs value={processing.tool} onValueChange={tool => {
-      setError('');
-      workspace.changeVideoProcessing({ tool: tool === 'synthesize' ? 'synthesize' : 'extract' });
-    }} className="min-h-0 flex-1 gap-3">
-      <TabsList className="workspace-segmented shrink-0" aria-label="视频处理工具">
-        <TabsTrigger value="extract" disabled={pending}><Captions />提取字幕</TabsTrigger>
-        <TabsTrigger value="synthesize" disabled={pending}><Film />合成字幕</TabsTrigger>
-      </TabsList>
+    <WorkspaceHeading title={heading[0]} description={heading[1]} />
       <div className={cn('workspace-panel grid shrink-0 gap-2 rounded-xl bg-card p-3 sm:px-4', dragging && 'ring-2 ring-primary/50')}
         onDragOver={event => { event.preventDefault(); if (!pending) setDragging(true); }}
         onDragLeave={event => {
@@ -65,8 +62,8 @@ export function VideoProcessingPage({ workspace }: { workspace: PublisherWorkspa
           if (!pending) void importVideo(Array.from(event.dataTransfer.files, file => window.publisher.filePath(file)).filter(Boolean));
         }}>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-sm font-medium">{processing.tool === 'synthesize' ? '目标视频' : '待提取的视频'}</span>
-          <WorkspaceSelect label={processing.tool === 'synthesize' ? '选择目标视频' : '选择待提取的视频'}
+          <span className="mr-1 text-sm font-medium">{synthesis ? '目标视频' : review ? '待核对的视频' : '待提取的视频'}</span>
+          <WorkspaceSelect label={synthesis ? '选择目标视频' : review ? '选择待核对的视频' : '选择待提取的视频'}
             value={asset?.id ?? ''} disabled={pending || !options.length} className="w-full max-w-72 sm:w-72"
             options={[{ value: '', label: '从下载记录或素材中选择' }, ...options]} onValueChange={selectVideo} />
           <Button type="button" variant="outline" disabled={pending} onClick={() => void importVideo()}>
@@ -80,18 +77,18 @@ export function VideoProcessingPage({ workspace }: { workspace: PublisherWorkspa
         {!asset && <p className="text-xs text-muted-foreground">也可以将视频拖到这里。</p>}
         {(error || loadError) && <ErrorNotice>{error || loadError}</ErrorNotice>}
       </div>
-      <TabsContent value="extract" className="min-h-0 flex-1 overflow-y-auto pb-1 lg:overflow-hidden">
-        {asset ? <CaptionEditor key={asset.id} asset={asset} caption={snapshot?.captions[asset.id]} drafts={workspace.captionDrafts}
-          onUseForSynthesis={() => workspace.changeVideoProcessing({
-            tool: 'synthesize', synthesizeId: processing.synthesizeId || asset.id, subtitle: { kind: 'saved', id: asset.id },
-          })} />
+      <section aria-label={heading[0]} className="min-h-0 flex-1 overflow-y-auto pb-1 lg:overflow-hidden">
+        {synthesis ? <SubtitleSynthesis asset={asset} snapshot={snapshot} workspace={workspace} />
+          : asset ? <CaptionEditor key={asset.id} asset={asset} caption={snapshot?.captions[asset.id]} drafts={workspace.captionDrafts}
+            review={review} onTimeline={() => workspace.changeView('subtitle-extract')}
+            onReview={() => workspace.changeView('script-review')}
+            onUseForSynthesis={() => {
+              workspace.changeVideoProcessing({ synthesizeId: processing.synthesizeId || asset.id, subtitle: { kind: 'saved', id: asset.id } });
+              workspace.changeView('subtitle-synthesis');
+            }} />
           : <Card className="workspace-panel"><CardContent className="grid min-h-48 place-content-center gap-2 text-center text-sm text-muted-foreground">
-            <Captions className="mx-auto size-5" />选择视频后可提取已有字幕，或从语音生成字幕。
+            <Captions className="mx-auto size-5" />{review ? '选择视频后即可导入 Word 原稿。' : '选择视频后可提取已有字幕，或从语音生成字幕。'}
           </CardContent></Card>}
-      </TabsContent>
-      <TabsContent value="synthesize" className="min-h-0 flex-1 overflow-y-auto pb-1 lg:overflow-hidden">
-        <SubtitleSynthesis asset={asset} snapshot={snapshot} workspace={workspace} />
-      </TabsContent>
-    </Tabs>
+      </section>
   </>;
 }

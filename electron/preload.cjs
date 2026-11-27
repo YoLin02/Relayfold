@@ -4,6 +4,12 @@ contextBridge.exposeInMainWorld('publisher', {
   request: (method, args = {}) => ipcRenderer.invoke('publisher:request', method, args),
   selectMedia: kind => ipcRenderer.invoke('publisher:select-media', kind),
   materialAction: (action, args = {}) => ipcRenderer.invoke('publisher:material-action', action, args),
+  voiceAction: (action, args = {}) => ipcRenderer.invoke('publisher:voice-action', action, args),
+  subscribeVoice: callback => {
+    const listener = () => callback();
+    ipcRenderer.on('publisher:voice-changed', listener);
+    return () => ipcRenderer.removeListener('publisher:voice-changed', listener);
+  },
   subscribeMaterials: callback => {
     const listener = () => callback();
     ipcRenderer.on('publisher:materials-changed', listener);

@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron, expect, test } from '@playwright/test';
+import { groupSwitcher, openGroupMenu, selectGroup } from './workspace-navigation';
 import type { State } from '../src/types';
 
 test('eight accounts bind independently, survive restart, and keep their identities in a batch', async ({}, testInfo) => {
@@ -16,7 +17,7 @@ test('eight accounts bind independently, survive restart, and keep their identit
   let app = await launch();
   try {
     let page = await app.firstWindow();
-    await page.getByRole('button', { name: '新建发布组', exact: true }).click();
+    await (await openGroupMenu(page)).getByRole('button', { name: '新建发布组', exact: true }).click();
     const create = page.getByRole('dialog', { name: '新建发布组' });
     await expect(create.getByRole('radio', { name: '常规组', exact: true })).toBeChecked();
     await create.getByRole('radio', { name: '自定义组', exact: true }).click();
@@ -70,7 +71,8 @@ test('eight accounts bind independently, survive restart, and keep their identit
     await app.close();
     app = await launch();
     page = await app.firstWindow();
-    await expect(page.getByRole('button', { name: '矩阵验收' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(groupSwitcher(page)).toHaveAccessibleName('切换发布组，当前 矩阵验收');
+    await page.getByRole('button', { name: '新建发布', exact: true }).click();
     for (const { name, label } of accounts) {
       await expect(page.getByRole('checkbox', { name: `选择${name} ${label}`, exact: true })).toBeVisible();
     }
@@ -97,9 +99,9 @@ test('eight accounts bind independently, survive restart, and keep their identit
     }
     await confirm.getByRole('button', { name: '确认并群发' }).click();
     await expect(confirm).toBeHidden();
-    await page.getByRole('button', { name: /账号 B$/ }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByText('暂无发布记录', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '矩阵验收' }).click();
+    await selectGroup(page, '矩阵验收');
     await expect(page.getByText('已提交', { exact: true })).toHaveCount(8, { timeout: 70_000 });
     const deliveries = (await readFile(path.join(dataDir, 'fixture-deliveries.jsonl'), 'utf8'))
       .trim().split('\n').map(line => JSON.parse(line));

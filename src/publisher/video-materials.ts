@@ -14,9 +14,8 @@ export type CaptionDraft = { revision: number; cues: EditableCue[] };
 export type ImportedSubtitle = { id: string; name: string; cues: Cue[] };
 export type SynthesisSource = { kind: 'saved'; id: string; revision: number } | { kind: 'srt'; id: string };
 export type SubtitleSelection = { kind: 'saved'; id: string } | { kind: 'srt'; file: ImportedSubtitle };
-export type ProcessingTool = 'extract' | 'synthesize';
 export type VideoProcessingState = {
-  tool: ProcessingTool; extractId?: string; synthesizeId?: string; subtitle?: SubtitleSelection;
+  extractId?: string; synthesizeId?: string; subtitle?: SubtitleSelection;
 };
 export type CaptionSummary = {
   status: string; progress: number | null; detail: string; source: 'extract' | 'speech' | '';

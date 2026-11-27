@@ -1,113 +1,63 @@
 <p align="center">
-  <img src="src/assets/relayfold-mark.png" width="96" height="96" alt="Relayfold 图标">
+  <img src="src/assets/relayfold-mark.png" width="76" height="76" alt="Relayfold 图标">
 </p>
 
 <h1 align="center">Relayfold</h1>
-<p align="center"><strong>视频下载、字幕处理与抖音、小红书、微信视频号等平台的一键群发</strong></p>
+<p align="center"><strong>面向剪辑师和内容团队的本地视频制作与交付工作台</strong></p>
 
 <p align="center">
-  <a href="https://github.com/YoLin02/Relayfold/tree/preview-20261127"><img alt="源码快照 2026.11.27" src="https://img.shields.io/badge/preview-2026.11.27-2563eb?style=flat"></a>
-  <a href="https://erp.gzsenhan.com:18443/relayfold/Relayfold-0.0.2-Windows-x64-20261127.zip"><img alt="下载 Windows x64" src="https://img.shields.io/badge/download-Windows%20x64-0078d4?style=flat"></a>
-  <img alt="Electron 和 React" src="https://img.shields.io/badge/UI-Electron%20%2B%20React-0891b2?style=flat">
-  <img alt="Python Worker" src="https://img.shields.io/badge/worker-Python-3776ab?style=flat">
-  <a href="#平台支持与验证"><img alt="24 个平台" src="https://img.shields.io/badge/platforms-24-6554c0?style=flat"></a>
-  <a href="#平台支持与验证"><img alt="2 个平台已验证真实视频提交" src="https://img.shields.io/badge/live%20verified-2%20platforms-2e8b57?style=flat"></a>
-  <a href="#视频处理与字幕"><img alt="本地语音识别与 Word 脚本核对" src="https://img.shields.io/badge/subtitles-Whisper%20%2B%20Word-475569?style=flat"></a>
+  <a href="https://github.com/YoLin02/Relayfold/tree/main"><img alt="源码版本 0.0.3" src="https://img.shields.io/badge/源码-v0.0.3-2563eb?style=flat"></a>
+  <img alt="Windows x64" src="https://img.shields.io/badge/Windows-x64-475569?style=flat">
+  <img alt="本地 Whisper 和 Qwen3-TTS" src="https://img.shields.io/badge/本地推理-Whisper%20%2B%20Qwen3--TTS-0891b2?style=flat">
 </p>
 
 <p align="center">
+  <a href="#剪辑工作流">剪辑工作流</a> ·
   <a href="#界面预览">界面预览</a> ·
-  <a href="#视频处理与字幕">视频处理与字幕</a> ·
-  <a href="#消息与评论">消息与评论</a> ·
-  <a href="#平台支持与验证">平台支持与验证</a> ·
-  <a href="#从源码启动">从源码启动</a> ·
-  <a href="#技术栈">技术栈</a>
+  <a href="#安装与运行">安装与运行</a> ·
+  <a href="#平台支持与验证">平台支持与验证</a>
 </p>
 
-Relayfold 是一款面向剪辑师和内容运营者的 Windows 本地工具。它可以下载 B 站视频、提取和校对字幕、用 Word 原稿对稿，再把合成后的成片带入发布页。选一次素材即可为抖音、小红书、微信视频号、哔哩哔哩等目标准备视频、图文或文章，按平台调整文案和封面后统一核对。账号会话、素材记录、核对进度和发布队列保存在本机。
+Relayfold 把素材获取、字幕校对、声音制作和发布交付放进同一个 Windows 应用。下载 B 站视频或导入本地素材，提取字幕并用 Word 原稿核对，需要配音时用本地模型克隆并保存音色。制作完成后，可以导出 SRT、WAV 或烧录字幕的 MP4，也可以把成片送进多账号发布草稿。
 
-**[下载 Windows x64 便携预览版](https://erp.gzsenhan.com:18443/relayfold/Relayfold-0.0.2-Windows-x64-20261127.zip)**（2026-11-27，约 454 MB）。完整解压后双击 `Relayfold.exe`。网页发布需要 Google Chrome，视频下载和处理需要将 FFmpeg、FFprobe 加入 PATH。语音识别模型随便携包提供。 [SHA-256 校验文件](https://erp.gzsenhan.com:18443/relayfold/Relayfold-0.0.2-Windows-x64-20261127.zip.sha256) · [历史 GitHub Releases](https://github.com/YoLin02/Relayfold/releases)
+![Relayfold 工作台，左侧为独立工具入口，右侧为当前发布组的账号状态、任务趋势和最近发布](docs/screenshots/workbench.png)
+
+## 剪辑工作流
+
+| 入口 | 可完成的操作 | 输出与交接 |
+| --- | --- | --- |
+| **视频下载** | 解析 B 站视频链接或分享短链，选择清晰度，查看进度或重试。 | 打开本地文件夹，或将所选素材直接送去提取字幕。 |
+| **提取字幕** | 导入本地视频，提取内封文字字幕或读取同名字幕文件。也可用 Whisper 从音轨识别，适用于无文字轨或烧录字幕的视频。 | 编辑时间和文本，点击台词定位预览，保存并导出 SRT。 |
+| **脚本核对** | 导入 Word `.docx`，对照原稿和视频字幕。差异可以试听、标记为已核对，或跳到对应的时间轴条目修改。 | 保存修改后重新核对，继续使用当前素材及字幕版本。 |
+| **配音与音色** | 按需下载 Qwen3‑TTS 0.6B 或 1.7B Base，或选用已有模型。可截取参考录音、自动识别并校对原文，克隆、保存和复用音色。 | 试听并导出 24 kHz WAV。音色库支持重命名和导入兼容的旧音色。 |
+| **合成字幕** | 为所选视频加载已保存字幕或独立 SRT，预览字幕合成效果。 | 输出新的硬字幕 MP4，可继续在剪辑软件使用或带入发布草稿。 |
+
+字幕和配音可作为独立素材交给剪辑软件。生成的 WAV 可在剪辑软件内放回音轨、对齐和混音。字幕识别、模型推理和媒体处理在本机运行，素材、音色、账号会话和任务记录保存在本机。
 
 ## 界面预览
 
-下面是 Relayfold 的实机截图，账号、素材和评论均为演示数据。
+以下为 **0.0.3** 运行界面，账号、任务和媒体均为演示数据。
 
-![Relayfold 发布工作台，左侧编辑素材和文案，右侧选择发布账号](docs/screenshots/publish-workspace.png)
-
-| 平台账号 | 群发前核对 |
+| 脚本与字幕核对 | 本地配音与音色库 |
 | --- | --- |
-| [![按内容类型筛选平台账号](docs/screenshots/platform-accounts.png)](docs/screenshots/platform-accounts.png) | [![并排核对抖音和小红书文案](docs/screenshots/publish-review.png)](docs/screenshots/publish-review.png) |
+| [![Word 原稿核对与视频字幕预览](docs/screenshots/word-script-review.png)](docs/screenshots/word-script-review.png) | [![模型选择、参考录音、克隆音色和生成配音](docs/screenshots/voice-workspace.png)](docs/screenshots/voice-workspace.png) |
 
-![脚本核对页，左侧播放视频，右侧并排核对 Word 原稿和转写字幕](docs/screenshots/word-script-review.png)
-
-## 主要功能
-
-- **多账号与发布组**。常规组每个平台可绑定一个账号。自定义组可添加同一平台的多个账号，各自保存登录态。入队后切组，任务继续使用创建时选定的账号。
-- **视频、图文和文章群发**。抖音和小红书可分别覆盖通用标题、正文、标签和封面。确认页逐一核对目标账号和最终内容。
-- **定时发布与托盘常驻**。预约支持改期和取消。关窗后继续从托盘运行，电脑须保持唤醒并联网。预约时间是开始处理的时间，作品公开时间取决于上传和审核。
-- **发布记录与诊断**。按日期筛选、查看回执或诊断、删除本地记录。平台确认收稿时显示「已提交」，提交结果不明确时显示「待核对」。
-- **小红书评论**。同步账号近期笔记，逐篇查看评论并以原账号回复。
-- **工作台设置**。可切换国内或国外平台、主题色，使用 `Ctrl+K` 搜索账号、发布组和页面。
-
-## 视频处理与字幕
-
-| 入口 | 操作与输出 |
+| 字幕成片 | 群发前核对 |
 | --- | --- |
-| 视频下载 | 粘贴 B 站视频链接或分享短链，选择清晰度。下载完成后可以打开文件夹，或将素材送到「视频处理」。 |
-| 提取字幕 | 选下载好的素材或导入本地视频。可以提取内封文字字幕、读取同名字幕文件，或用本地 Whisper 从音轨转写。点时间轴中的台词即可跳转，播放时画面会显示字幕。 |
-| Word 脚本核对 | 在「视频处理 → 提取字幕 → 脚本核对」导入 `.docx`。没有已保存的字幕时，优先提取内封文字字幕，其次读取同名文件。原稿与转写按连续文本对齐，差异可试听、跳到时间轴修改或标记已核对。保存后重新比较。 |
-| 合成字幕 | 分别选择目标视频和字幕。可使用已保存的字幕或导入独立 SRT，预览后生成新的硬字幕 MP4，再带入当前账号组的发布草稿。 |
+| [![预览并生成烧录字幕的视频](docs/screenshots/subtitle-synthesis.png)](docs/screenshots/subtitle-synthesis.png) | [![核对各平台的最终文案和目标账号](docs/screenshots/publish-review.png)](docs/screenshots/publish-review.png) |
 
-B 站下载、Word 差异定位、已有字幕优先提取，以及「独立视频 + SRT → 合成 → 发布草稿」均已验收。下载平台目前为 B 站，微博、抖音等平台处于扩展验证阶段。
+[视频下载](docs/screenshots/video-download.png) · [发布草稿](docs/screenshots/publish-workspace.png) · [平台账号](docs/screenshots/platform-accounts.png) · [消息与评论](docs/screenshots/xiaohongshu-comments.png)
 
-## 消息与评论
+## 工作台与发布交付
 
-**已使用真实小红书账号验证笔记同步、评论读取和回复提交。** 实测可以读到小红书账号主页上没有 Relayfold 发布记录的笔记，回复已获得平台确认。发送途中切组使用隔离桌面测试验收，仍由原绑定账号回复原评论。
+- **工作台**显示当前发布组的账号状态、待执行任务和最近发布。发布趋势支持近 7 天或 30 天，按日期查看任务状态分布。左下角的头像菜单可切换和管理发布组，切换时保留正在使用的剪辑工具、所选视频和字幕编辑。
+- **发布草稿**支持视频、图文、文章。标题、正文、标签和封面可以按抖音和小红书分别调整，提交前可逐个平台核对。常规组每个平台可绑定一个账号，自定义组可绑定同一平台的多个账号。
+- **任务队列**支持立即提交、定时、改期和取消。关窗后可由 Windows 托盘继续处理，定时任务要求电脑保持唤醒并联网。任务始终使用入队时选定的账号，回执、待核对结果和诊断可从发布记录查看。
+- **消息与评论**提供小红书收到评论、完整评论和回复核对。抖音提供官方评论及私信入口，支持保存本地私信草稿。
 
-![小红书评论页，左侧笔记和右侧评论独立滚动](docs/screenshots/xiaohongshu-comments.png)
+## 安装与运行
 
-1. 打开「消息」，切换到小红书账号的评论。
-2. 可在「收到评论」中查看单条新留言与追回复，或在「完整评论」中打开自己的笔记查看评论。
-3. 核对目标评论、发送账号和回复正文后，再确认回复。
-
-两栏的头部与账号操作区固定，笔记和评论列表各自滚动。设置中可管理评论提醒和本地缓存。抖音评论、私信提供官方页面入口，私信草稿可在本地准备。
-
-## 平台支持与验证
-
-下表列出 **24 个平台**。真实验证按内容类型记录，平台回执表示确认提交，公开状态以平台审核为准。
-
-| 平台 | 内容 | 验证 |
-| --- | --- | --- |
-| 抖音 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
-| 小红书 | 视频、图文 | **视频 · 真实提交已验证**；图文 · 模拟表单已验证 |
-| 快手 | 视频 | 已接入 · 待真实验证 |
-| 微信视频号 | 视频 | 已接入 · 待真实验证 |
-| 哔哩哔哩 | 视频 | 已接入 · 待真实验证 |
-| 知乎 | 文章 | 已接入 · 待真实验证 |
-| 头条号 | 文章 | 已接入 · 待真实验证 |
-| CSDN | 文章 | 已接入 · 待真实验证 |
-| 简书 | 文章 | 已接入 · 待真实验证 |
-| 搜狐号 | 文章 | 已接入 · 待真实验证 |
-| 微信公众号 | 文章草稿 | 已接入 · 待真实验证 |
-| 百家号 | 文章 | 已接入 · 待真实验证 |
-| 网易号 | 文章 | 已接入 · 待真实验证 |
-| TikTok | 视频 | 已接入 · 待真实验证 |
-| YouTube | 视频 | 已接入 · 待真实验证 |
-| Facebook | 视频 | 已接入 · 待真实验证 |
-| Instagram | 视频 | 已接入 · 待真实验证 |
-| X / Twitter | 视频 | 已接入 · 待真实验证 |
-| Reddit | 文章 | 已接入 · 待真实验证 |
-| Medium | 文章 | 已接入 · 待真实验证 |
-| LinkedIn | 文章 | 已接入 · 待真实验证 |
-| Blogger | 文章 | 已接入 · 待真实验证 |
-| Quora | 文章 | 已接入 · 待真实验证 |
-| DEV Community | 文章 | 已接入 · 待真实验证 |
-
-微信公众号任务写入草稿，最终群发在公众号后台完成。
-
-## 从源码启动
-
-需要 Windows x64、Node.js 22.12+ 和 Python 3.11+。网页发布需要 Google Chrome，视频功能需要 FFmpeg 与 FFprobe。
+**0.0.3 源码版本**适用于 Windows x64。需要 Node.js 22.12+ 和 Python 3.11+。视频与音频工具需要系统 PATH 中的 FFmpeg 和 FFprobe，网页发布需要 Google Chrome。
 
 ```powershell
 git clone https://github.com/YoLin02/Relayfold.git
@@ -120,26 +70,31 @@ npm run build
 npm start
 ```
 
-开发时可将 `ZT_PUBLISHER_DATA_DIR` 指向独立目录，隔离浏览器会话与测试发布记录。Windows x64 打包版可通过本机环境变量 `RELAYFOLD_UPDATE_SSH_HOST`、`RELAYFOLD_UPDATE_SSH_DIRECTORY` 和 `RELAYFOLD_UPDATE_PUBLIC_KEY` 启用签名更新。
+**本地配音环境**面向 Windows x64 和 NVIDIA CUDA。可在「剪辑工具 → 配音与音色」按需安装，也可选用已有 Qwen3‑TTS 环境的 `python.exe`。自动安装需要至少 12 GiB 可用空间，0.6B 和 1.7B 模型分别约 2.52 GB 和 4.54 GB，另计。模型下载支持文件校验和续传。参考录音可选取 3 至 30 秒的单人片段。
 
-运行本地测试
+**已有便携包**为早期的 0.0.2 预览版。下载后完整解压，再运行 `Relayfold.exe`。上方界面对应 0.0.3 源码。 [下载 0.0.2 Windows x64 便携预览包](https://erp.gzsenhan.com:18443/relayfold/Relayfold-0.0.2-Windows-x64-20261127.zip) · [SHA-256 校验文件](https://erp.gzsenhan.com:18443/relayfold/Relayfold-0.0.2-Windows-x64-20261127.zip.sha256) · [历史 GitHub Releases](https://github.com/YoLin02/Relayfold/releases)
+
+## 平台支持与验证
+
+视频下载入口支持 B 站。发布适配的验证按平台和内容类型记录，平台回执表示确认收稿，公开状态以平台审核为准。
+
+| 内容 | 平台 | 验证范围 |
+| --- | --- | --- |
+| 视频、图文 | 抖音、小红书 | 视频已验证真实提交，图文已验证模拟表单。 |
+| 视频 | 快手、微信视频号、哔哩哔哩、TikTok、YouTube、Facebook、Instagram、X / Twitter | 已接入，待真实提交验证。 |
+| 文章 | 知乎、头条号、CSDN、简书、搜狐号、百家号、网易号、Reddit、Medium、LinkedIn、Blogger、Quora、DEV Community | 已接入，待真实提交验证。 |
+| 文章草稿 | 微信公众号 | 已接入，任务写入草稿，最终群发在公众号后台完成。 |
+
+小红书的笔记同步、评论读取和回复提交有真实验证记录。桌面隔离测试覆盖了发送期间切组、原账号隔离和待核对处理。
+
+## 开发与测试
+
+界面使用 Electron、React、TypeScript 和 shadcn/ui。本地 Worker 使用 Python 和 SQLite，媒体处理基于 yt-dlp、FFmpeg、FFprobe、whisper.cpp 和 Qwen3‑TTS，网页发布通过 Playwright 或 Patchright 运行。浏览器会话按绑定账号隔离，支持 Windows DPAPI 登录态备份。依赖来源见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+
+开发和演示时可将 `ZT_PUBLISHER_DATA_DIR` 指向独立目录，用单独的素材、浏览器会话和任务记录。
 
 ```powershell
+npm run build
 & $env:ZT_PYTHON -B -m unittest discover -s tests -p '*_test.py'
 npm run test:e2e
 ```
-
-## 技术栈
-
-| 模块 | 实现 |
-| --- | --- |
-| `electron/` | Electron、IPC、Windows 托盘和本地 Worker 管理 |
-| `src/` | React 19、TypeScript、Vite、Tailwind CSS v4、shadcn/ui v4、Radix UI、Lucide |
-| `worker/` | Python、Playwright、Patchright 1.64.4，按平台封装网页流程或 API |
-| 视频与字幕 | yt-dlp、FFmpeg、FFprobe、whisper.cpp、Silero VAD、WordprocessingML 与 Python 文本对齐 |
-| 本地数据 | SQLite 记录发布组、任务、回执、素材和脚本核对进度。浏览器会话按绑定账号隔离，登录态备份使用 Windows DPAPI |
-
-## 规划
-
-- 扩展视频下载平台，分别验证公开分享链接、清晰度选择和完整下载。
-- 针对抖音、微博等平台按样片记录可用范围，逐站验收后添加到下载入口。

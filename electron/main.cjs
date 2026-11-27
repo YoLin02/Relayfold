@@ -37,7 +37,7 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
     'materials.resolve': 80000,
   };
   const methods = new Set([
-    'state', 'groups.create', 'groups.select', 'groups.rename', 'groups.delete', 'accounts.open', 'accounts.manage', 'accounts.confirm',
+    'state', 'workbench.activity', 'groups.create', 'groups.select', 'groups.rename', 'groups.delete', 'accounts.open', 'accounts.manage', 'accounts.confirm',
     'accounts.check', 'accounts.add', 'accounts.replace', 'accounts.delete', 'accounts.configure', 'tasks.create', 'tasks.retry', 'tasks.review',
     'tasks.reschedule', 'tasks.cancelSchedule', 'tasks.diagnostics', 'tasks.history', 'tasks.delete',
     'settings.region', 'settings.theme', 'settings.commentMode', 'settings.commentAccount',
@@ -50,6 +50,8 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
     'materials.caption.get', 'materials.caption.start', 'materials.caption.cancel', 'materials.caption.save',
     'materials.script.review', 'materials.script.mark',
     'materials.render.cancel',
+    'voice.snapshot', 'voice.cancel', 'voice.runtime.install', 'voice.model.download', 'voice.transcribe', 'voice.clone',
+    'voice.generate', 'voice.profile.rename', 'voice.profile.delete', 'voice.output.delete',
   ]);
 
   function notify() {
@@ -101,6 +103,10 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
         }
         if (message.event === 'materials') {
           if (window && !window.isDestroyed()) window.webContents.send('publisher:materials-changed');
+          return;
+        }
+        if (message.event === 'voice') {
+          if (window && !window.isDestroyed()) window.webContents.send('publisher:voice-changed');
           return;
         }
         if (message.event === 'comment-alert') {
@@ -317,6 +323,43 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
         title: '选择评论缓存目录', defaultPath: directory, properties: ['openDirectory', 'createDirectory'],
       });
       return result.filePaths[0] ?? null;
+    });
+    ipcMain.handle('publisher:voice-action', async (event, action, args) => {
+      verifySender(event);
+      if (installing) throw new Error('Relayfold 正在重启。');
+      const open = async (title, properties, filters) => {
+        const result = await dialog.showOpenDialog(window, { title, properties, filters });
+        return result.canceled ? undefined : result.filePaths[0];
+      };
+      if (action === 'directory') {
+        const path = await open('选择配音模型与环境的存放目录', ['openDirectory', 'createDirectory']);
+        if (path) return request('voice.directory', { path });
+      } else if (action === 'model') {
+        const path = await open('选择已下载的 TTS 模型目录', ['openDirectory']);
+        if (path) return request('voice.model.use', { path, model: args?.model });
+      } else if (action === 'runtime') {
+        const path = await open('选择已有配音环境的 python.exe', ['openFile'], [{ name: 'Python', extensions: ['exe'] }]);
+        if (path) return request('voice.runtime.use', { path });
+      } else if (action === 'reference') {
+        const path = await open('选择参考录音', ['openFile'], [
+          { name: '音频文件', extensions: ['wav', 'mp3', 'm4a', 'aac', 'flac', 'ogg', 'opus'] },
+        ]);
+        if (path) return request('voice.reference.select', { path });
+      } else if (action === 'import') {
+        const path = await open('选择旧音色目录', ['openDirectory']);
+        if (path) return request('voice.import', { path });
+      } else if (action === 'preview' || action === 'export') {
+        const { path: file, name } = await request('voice.file', { id: args?.id, kind: action === 'export' ? 'output' : args?.kind });
+        if (action === 'preview') return pathToFileURL(file).href;
+        const result = await dialog.showSaveDialog(window, {
+          title: '导出配音 WAV', defaultPath: path.join(app.getPath('documents'), name),
+          filters: [{ name: 'WAV 音频', extensions: ['wav'] }],
+        });
+        if (!result.canceled && result.filePath) return request('voice.output.export', { id: args.id, path: result.filePath });
+      } else {
+        throw new Error('未知的配音操作。');
+      }
+      return null;
     });
     ipcMain.handle('publisher:material-action', async (event, action, args) => {
       verifySender(event);

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { _electron, expect, test, type Page } from '@playwright/test';
+import { groupSwitcher, openGroupMenu, selectGroup } from './workspace-navigation';
 import type { Binding, State } from '../src/types';
 
 const project = process.cwd();
@@ -25,12 +26,12 @@ test('two account groups survive restart and a running batch keeps its original 
   try {
     let page = await app.firstWindow();
     page.on('pageerror', error => { throw error; });
-    await expect(page.getByRole('heading', { name: '新建发布', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '工作台', exact: true })).toBeVisible();
     const brand = page.locator('[data-sidebar="header"] [data-slot="workspace-brand"]');
     await expect(brand.getByText('Relayfold', { exact: true })).toBeVisible();
     await expect.poll(() => brand.locator('img').evaluate(icon => icon.complete && icon.naturalWidth > 0)).toBe(true);
     await expect(page.getByText('本地执行服务已连接', { exact: true })).toHaveCount(0);
-    await page.screenshot({ path: testInfo.outputPath('publish.png') });
+    await page.screenshot({ path: testInfo.outputPath('workbench.png') });
     await page.getByRole('button', { name: '平台账号', exact: true }).click();
     const category = page.getByRole('tablist', { name: '平台内容分类' });
     await category.getByRole('tab', { name: '视频' }).click();
@@ -42,9 +43,7 @@ test('two account groups survive restart and a running batch keeps its original 
     await category.getByRole('tab', { name: '全部' }).click();
 
     for (const group of ['A', 'B']) {
-      const groupButton = page.getByRole('button', { name: new RegExp(`账号 ${group}$`) });
-      await groupButton.click();
-      await expect(groupButton).toHaveAttribute('aria-pressed', 'true');
+      await selectGroup(page, `账号 ${group}`);
       for (const platform of ['抖音', '小红书']) {
         await page.getByRole('article', { name: platform, exact: true }).getByRole('button', { name: '绑定账号' }).click();
         const dialog = page.getByRole('dialog');
@@ -65,10 +64,10 @@ test('two account groups survive restart and a running batch keeps its original 
     await app.close();
     app = await launch();
     page = await app.firstWindow();
-    await expect(page.getByRole('button', { name: /账号 B$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(groupSwitcher(page)).toHaveAccessibleName('切换发布组，当前 账号 B');
     await page.getByRole('button', { name: '平台账号', exact: true }).click();
     for (const group of ['B', 'A']) {
-      await page.getByRole('button', { name: new RegExp(`账号 ${group}$`) }).click();
+      await selectGroup(page, `账号 ${group}`);
       await expect(page.getByText('会话已保存', { exact: true })).toHaveCount(2);
       for (const platform of ['抖音', '小红书']) {
         const card = page.locator('.account-card').filter({ hasText: `${platform} ${group}` });
@@ -121,10 +120,10 @@ test('two account groups survive restart and a running batch keeps its original 
     await editorTabs.getByRole('tab', { name: /^小红书/ }).click();
     await page.getByRole('textbox', { name: '小红书标题' }).fill('待撤销的标题');
     await page.getByRole('button', { name: '恢复通用小红书标题' }).click();
-    await page.getByRole('button', { name: /账号 B$/ }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByPlaceholder('输入视频标题')).toHaveValue('');
     await expect(page.getByRole('checkbox', { name: '选择小红书 小红书 B' })).not.toBeChecked();
-    await page.getByRole('button', { name: /账号 A$/ }).click();
+    await selectGroup(page, '账号 A');
     await expect(page.getByPlaceholder('输入视频标题')).toHaveValue('本地分发验收');
     await page.getByRole('button', { name: '核对并群发' }).click();
     await expect(page.getByRole('dialog')).toContainText('抖音 · 抖音 A');
@@ -139,10 +138,10 @@ test('two account groups survive restart and a running batch keeps its original 
     await page.getByRole('button', { name: '核对并群发' }).click();
     await page.getByRole('button', { name: '确认并群发' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
-    await page.getByRole('button', { name: /账号 B$/ }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByText(/其他发布组有 .* 条任务在运行/)).toBeVisible();
     await expect(page.getByText('暂无发布记录')).toBeVisible();
-    await page.getByRole('button', { name: /账号 A$/ }).click();
+    await selectGroup(page, '账号 A');
     await expect(page.getByText('已提交', { exact: true })).toHaveCount(2);
     const douyinRecord = page.getByRole('article', { name: '抖音 · 抖音 A' });
     await douyinRecord.getByRole('button', { name: '诊断记录' }).click();
@@ -263,6 +262,7 @@ test('two account groups survive restart and a running batch keeps its original 
     app = await launch();
     page = await app.firstWindow();
     await expect(page.locator('html')).toHaveAttribute('data-accent-theme', 'sky');
+    await page.getByRole('button', { name: '新建发布', exact: true }).click();
     await expect(page.getByRole('checkbox', { name: '选择TikTok TikTok A' })).toBeVisible();
     await expect(page.getByRole('checkbox', { name: /抖音|小红书/ })).toHaveCount(0);
     await page.getByRole('tab', { name: '图文', exact: true }).click();
@@ -277,11 +277,11 @@ test('two account groups survive restart and a running batch keeps its original 
     await expect(page.getByRole('combobox', { name: '图文格式' })).toHaveText('多图');
     await expect(page.getByRole('checkbox', { name: '选择抖音 抖音 A' })).toBeVisible();
 
-    await page.getByRole('button', { name: '新建发布组' }).click();
+    await (await openGroupMenu(page)).getByRole('button', { name: '新建发布组', exact: true }).click();
     const createGroup = page.getByRole('dialog', { name: '新建发布组' });
     await createGroup.getByLabel('发布组名称').fill('账号 C');
     await createGroup.getByRole('button', { name: '创建发布组' }).click();
-    await expect(page.getByRole('button', { name: '账号 C', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(groupSwitcher(page)).toHaveAccessibleName('切换发布组，当前 账号 C');
     await expect(page.getByRole('heading', { name: '平台账号', exact: true })).toBeVisible();
     await chooseOption(page, '绑定状态', '已绑定');
     await expect(page.getByText('没有匹配的平台')).toBeVisible();
@@ -297,41 +297,35 @@ test('two account groups survive restart and a running batch keeps its original 
     await expect(page.getByRole('checkbox', { name: '选择抖音 抖音 C' })).toBeVisible();
     await expect(page.getByRole('checkbox', { name: '选择抖音 抖音 A' })).toHaveCount(0);
 
-    const groupC = page.getByRole('button', { name: '账号 C', exact: true });
-    await groupC.click({ button: 'right' });
-    await page.getByRole('menuitem', { name: '重命名', exact: true }).click();
+    await (await openGroupMenu(page)).getByRole('button', { name: '重命名 账号 C', exact: true }).click();
     const rename = page.getByRole('dialog', { name: '重命名发布组' });
     await expect(rename.getByLabel('发布组名称')).toHaveValue('账号 C');
     await rename.getByLabel('发布组名称').fill('样例账号组');
     await rename.getByRole('button', { name: '保存名称' }).click();
-    const renamed = page.getByRole('button', { name: '样例账号组', exact: true });
-    await expect(renamed).toHaveAttribute('aria-pressed', 'true');
+    await expect(groupSwitcher(page)).toHaveAccessibleName('切换发布组，当前 样例账号组');
     await expect(page.getByRole('checkbox', { name: '选择抖音 抖音 C' })).toBeVisible();
-    await renamed.click({ button: 'right' });
-    await page.getByRole('menuitem', { name: '删除', exact: true }).click();
+    await (await openGroupMenu(page)).getByRole('button', { name: '删除 样例账号组', exact: true }).click();
     const remove = page.getByRole('dialog', { name: '删除发布组' });
     await remove.getByRole('button', { name: '取消', exact: true }).click();
-    await expect(renamed).toBeVisible();
-    await renamed.click({ button: 'right' });
-    await page.getByRole('menuitem', { name: '删除', exact: true }).click();
+    await expect(groupSwitcher(page)).toHaveAccessibleName('切换发布组，当前 样例账号组');
+    await (await openGroupMenu(page)).getByRole('button', { name: '删除 样例账号组', exact: true }).click();
     await remove.getByRole('button', { name: '确认删除' }).click();
-    await expect(renamed).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '账号 A', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(groupSwitcher(page)).toHaveAccessibleName('切换发布组，当前 账号 A');
+    await expect(groupSwitcher(page)).toBeEnabled();
 
     await page.keyboard.press('Control+k');
     const command = page.getByRole('dialog', { name: '搜索工作台' });
     await command.getByRole('combobox', { name: '搜索工作台' }).fill('抖音 B');
     await command.getByRole('option', { name: /抖音 · 抖音 B/ }).click();
-    await expect(page.getByRole('button', { name: '账号 B', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(groupSwitcher(page)).toHaveAccessibleName('切换发布组，当前 账号 B');
     await expect(page.getByRole('article', { name: '抖音', exact: true }).getByText('抖音 B')).toBeVisible();
 
     await page.getByRole('button', { name: '发布记录', exact: true }).click();
-    await page.getByRole('button', { name: '账号 A', exact: true }).click();
+    await selectGroup(page, '账号 A');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(480, 660));
     await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeLessThan(500);
     await expect(page.locator('.workspace-window-header').getByText('Relayfold', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '切换侧栏' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: '账号 B', exact: true }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByRole('dialog')).toBeHidden();
     await expect(page.getByText('暂无发布记录')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));

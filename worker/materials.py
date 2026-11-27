@@ -65,12 +65,12 @@ async def expand_short_link(url):
     return target
 
 
-async def start(*args, cwd=None):
+async def start(*args, cwd=None, extra_env=None):
     return await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.DEVNULL,
                                                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
                                                 creationflags=NO_WINDOW,
                                                 cwd=cwd,
-                                                env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+                                                env={**os.environ, "PYTHONIOENCODING": "utf-8", **(extra_env or {})},
                                                 limit=1024 * 1024)
 
 
@@ -90,8 +90,8 @@ async def stop(process):
     await process.wait()
 
 
-async def run(*args, timeout=50, cwd=None):
-    process = await start(*args, cwd=cwd)
+async def run(*args, timeout=50, cwd=None, extra_env=None):
+    process = await start(*args, cwd=cwd, extra_env=extra_env)
     try:
         output, errors = await asyncio.wait_for(process.communicate(), timeout)
     except TimeoutError as exc:

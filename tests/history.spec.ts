@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron, expect, test } from '@playwright/test';
+import { selectGroup } from './workspace-navigation';
 import type { State } from '../src/types';
 
 const seed = `
@@ -97,7 +98,7 @@ test('history date ranges and individual deletion persist through the app', asyn
     await page.getByRole('button', { name: '清除筛选' }).click();
     await expect(page.getByText('二月记录', { exact: true })).toBeVisible();
     await expect(page.getByText('一月记录', { exact: true })).toHaveCount(0);
-    await page.getByRole('button', { name: /账号 B$/ }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByText('另一个账号的记录', { exact: true })).toBeVisible();
   } finally {
     await app.close();

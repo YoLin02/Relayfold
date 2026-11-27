@@ -1,7 +1,7 @@
 import json
 import sqlite3
 from time import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 
@@ -486,3 +486,16 @@ class Store:
                 "comment_mode": comment_mode["value"] if comment_mode and comment_mode["value"] in COMMENT_MODES else "notes",
                 "comment_accounts": comment_accounts,
                 "bindings": bindings, "tasks": tasks, "platforms": public_catalog()}
+
+    def workbench_activity(self, group_id):
+        if not isinstance(group_id, str) or not self.db.execute("SELECT 1 FROM groups WHERE id=?", (group_id,)).fetchone():
+            raise ValueError("请选择有效的发布组。")
+        today = datetime.now().date()
+        first = datetime.combine(today - timedelta(days=29), datetime.min.time()).astimezone(timezone.utc).isoformat()
+        end = datetime.combine(today + timedelta(days=1), datetime.min.time()).astimezone(timezone.utc).isoformat()
+        return [dict(row) for row in self.db.execute("""
+            SELECT date(b.created_at, 'localtime') AS day, t.status, COUNT(*) AS count
+            FROM batches b JOIN tasks t ON t.batch_id=b.id
+            WHERE b.group_id=? AND b.created_at>=? AND b.created_at<?
+            GROUP BY day, t.status ORDER BY day
+        """, (group_id, first, end))]

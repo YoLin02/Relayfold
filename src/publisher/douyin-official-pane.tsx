@@ -24,8 +24,9 @@ export function DouyinOfficialPane({ account, name, kind, workspace, onClose }: 
   const [notifications, setNotifications] = useState(() => localStorage.getItem(key) === 'on');
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState('');
-  const { utility, account: accountDialog, accountAdder, confirmation, groupEditor } = workspace.state;
-  const shown = !openMobile && !utility && !accountDialog && !accountAdder && !confirmation && !groupEditor && status !== 'error';
+  const { utility, account: accountDialog, accountAdder, confirmation, groupEditor, groupMenuOpen, pending } = workspace.state;
+  const shown = !openMobile && !utility && !accountDialog && !accountAdder && !confirmation && !groupEditor
+    && !groupMenuOpen && pending !== 'group' && status !== 'error';
   const visible = useRef(shown);
   const notificationPreference = useRef(notifications);
   const { id: bindingId, group_id: groupId } = account;

@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron, expect, test, type Page } from '@playwright/test';
+import { selectGroup } from './workspace-navigation';
 import type { State } from '../src/types';
 
 function launch(dataDir: string) {
@@ -52,7 +53,7 @@ test('private messages read the selected conversation, cache it and isolate draf
     await page.getByRole('textbox', { name: '搜索私信会话' }).fill('不存在的联系人');
     await expect(page.getByText('没有匹配的会话。')).toBeVisible();
 
-    await page.getByRole('button', { name: '账号 B', exact: true }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByRole('button', { name: '切换私信账号' })).toContainText('演示账号 B');
     await expect(history).toHaveCount(0);
     await expect(page.evaluate(bindingId => window.publisher.request<State>('state').then(state =>
@@ -67,7 +68,7 @@ test('private messages read the selected conversation, cache it and isolate draf
     app = await launch(dataDir);
     page = await app.firstWindow();
     await openInbox(page);
-    await page.getByRole('button', { name: '账号 A', exact: true }).click();
+    await selectGroup(page, '账号 A');
     await expect(page.getByRole('button', { name: /演示账号 A的一号预览/ })).toBeVisible();
     await writeFile(path.join(dataDir, 'no-personal-chat-data'), '');
     await page.getByRole('button', { name: '同步私信', exact: true }).click();

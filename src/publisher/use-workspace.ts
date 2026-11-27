@@ -24,6 +24,7 @@ type WorkspaceState = {
   search: string;
   historyFilter: HistoryFilter;
   utility: 'help' | 'search' | null;
+  groupMenuOpen: boolean;
   groupEditor: { name: string; mode: GroupMode; group?: Group } | null;
   accountAdder?: { groupId: string; platform: string; count: string };
   settingsRegion: PlatformRegion | null;
@@ -39,8 +40,8 @@ type WorkspaceState = {
   notice: string;
 };
 const initial: WorkspaceState = {
-  view: 'publish', publishTab: 'video', graphicFormat: 'image', drafts: {},
-  videoProcessing: { tool: 'extract' },
+  view: 'workbench', publishTab: 'video', graphicFormat: 'image', drafts: {},
+  videoProcessing: {}, groupMenuOpen: false,
   category: 'all', accountState: 'all', search: '', utility: null, historyFilter: defaultHistoryFilter,
   groupEditor: null, settingsRegion: null, settingsTheme: null,
   pending: null, error: '', connectionError: '', notice: '',
@@ -169,7 +170,6 @@ export function usePublisherWorkspace() {
   const regionBindings = bindings.filter(binding => regionPlatformIds.has(binding.platform));
   const tasks = data?.tasks.filter(task => task.group_id === group?.id) || [];
   const searchableBindings = data?.bindings.filter(binding => binding.label && regionPlatformIds.has(binding.platform)) || [];
-  const boundGroups = new Set(data?.bindings.filter(binding => binding.label).map(binding => binding.group_id));
   const visibleBindings = regionBindings.filter(binding => {
     const platform = platforms[binding.platform];
     const matchesCategory = category === 'all' || (category === 'video'
@@ -256,16 +256,16 @@ export function usePublisherWorkspace() {
 
   function jumpToGroup(id: string, binding?: Binding) {
     const navigate = () => update({
-      utility: null, view: binding ? 'accounts' : 'publish', category: 'all', accountState: 'all',
-      search: binding ? binding.label : '', error: '', notice: '', settingsTheme: null,
+      utility: null, groupMenuOpen: false, error: '', notice: '', commentDestination: undefined,
+      ...(binding && { view: 'accounts', category: 'all', accountState: 'all', search: binding.label, settingsTheme: null }),
     });
     if (id === group?.id) navigate();
     else void run('group', () => window.publisher.request('groups.select', { id }), navigate);
   }
 
   function changeView(view: View) {
-    update(current => view === current.view ? { utility: null, commentDestination: undefined } : {
-      view, utility: null, error: '', notice: '', settingsRegion: null, settingsTheme: null, commentDestination: undefined,
+    update(current => view === current.view ? { utility: null, groupMenuOpen: false, commentDestination: undefined } : {
+      view, utility: null, groupMenuOpen: false, error: '', notice: '', settingsRegion: null, settingsTheme: null, commentDestination: undefined,
     });
   }
   function useMaterial(file: string, groupId = group?.id) {
@@ -279,8 +279,8 @@ export function usePublisherWorkspace() {
   }
   function processDownloadedVideo(id: string) {
     update(current => ({
-      view: 'video-processing', utility: null, error: '', notice: '', commentDestination: undefined,
-      videoProcessing: { ...current.videoProcessing, tool: 'extract', extractId: id },
+      view: 'subtitle-extract', utility: null, error: '', notice: '', commentDestination: undefined,
+      videoProcessing: { ...current.videoProcessing, extractId: id },
     }));
   }
   function saveRegion() {
@@ -408,7 +408,7 @@ export function usePublisherWorkspace() {
 
   return {
     state, update, run, groups, group, draft, platforms, nameOf, bindingName, bindings, tasks, visibleBindings,
-    boundGroups, searchableBindings, jumpToGroup,
+    searchableBindings, jumpToGroup,
     region, regionPlatforms, formats, kind, saveRegion, theme, visibleTheme, saveTheme,
     selectCommentAccount, updateCommentSettings, chooseCommentCache,
     connected, destinations, customized, optionGroups, has, titleLimit, canSubmit, blockedReason, isBusy,

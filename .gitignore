@@ -8,6 +8,9 @@ test-results/
 .env.*
 .ssh/
 profiles/
+voice-data/
+voice-models/
+Relayfold-TTS/
 diagnostics/
 updates/
 *.sqlite*

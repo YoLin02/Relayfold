@@ -1,6 +1,7 @@
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron, expect, test } from '@playwright/test';
+import { selectGroup } from './workspace-navigation';
 import type { State } from '../src/types';
 
 test('notes from platform load independently and confirmed replies keep the original account after switching groups', async ({}, testInfo) => {
@@ -28,7 +29,7 @@ test('notes from platform load independently and confirmed replies keep the orig
     await dialog.getByRole('button', { name: '确认发送', exact: true }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('status').filter({ has: page.locator('[data-slot=alert-description]') })).toContainText('演示账号 A · 正在向原评论提交回复。');
-    await page.getByRole('button', { name: '账号 B', exact: true }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByText('账号 B · 小红书', { exact: true })).toBeVisible();
     await expect(page.getByRole('status').filter({ has: page.locator('[data-slot=alert-description]') })).toContainText('演示账号 A · 小红书已确认收到回复。');
     const deliveries = (await readFile(deliveryPath, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
@@ -118,7 +119,7 @@ test('the full comment account persists and the received inbox keeps replies sco
     await page.getByRole('button', { name: '消息', exact: true }).click();
     await page.getByRole('tab', { name: '完整评论', exact: true }).click();
     const customGroup = '演示自定义组';
-    await page.getByRole('button', { name: customGroup, exact: true }).click();
+    await selectGroup(page, customGroup);
     const picker = page.getByRole('button', { name: '切换评论账号' });
     await picker.click();
     const dropdown = page.getByRole('dialog', { name: '切换评论账号' });
@@ -140,10 +141,10 @@ test('the full comment account persists and the received inbox keeps replies sco
     await expect(dropdown).toBeHidden();
     await expect(picker).toContainText('小红书 2');
     await picker.click();
-    await page.getByRole('button', { name: '账号 B', exact: true }).click();
+    await selectGroup(page, '账号 B');
     await expect(dropdown).toBeHidden();
     await expect(picker).toContainText('演示账号 B');
-    await page.getByRole('button', { name: customGroup, exact: true }).click();
+    await selectGroup(page, customGroup);
     await expect(picker).toContainText('小红书 2');
     await page.getByRole('button', { name: '同步笔记', exact: true }).click();
     await expect(page.getByRole('button', { name: '同名账号 2的站内笔记', exact: true })).toBeVisible();
@@ -174,7 +175,7 @@ test('the full comment account persists and the received inbox keeps replies sco
     await expect(confirmation).toContainText('同名账号 · 小红书 2');
     await expect(confirmation).toContainText(customGroup);
     await confirmation.getByRole('button', { name: '确认发送', exact: true }).click();
-    await page.getByRole('button', { name: '账号 B', exact: true }).click();
+    await selectGroup(page, '账号 B');
     await expect(page.getByText('账号 B · 小红书', { exact: true })).toBeVisible();
     await expect(list.getByText('同名账号 2的原评论', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('status').filter({ has: page.locator('[data-slot=alert-description]') })).toContainText('同名账号 · 小红书 2 · 小红书已确认收到回复。');
@@ -208,9 +209,9 @@ test('comments survive navigation, directory migration and restart, and reminder
     await expect.poll(() => cover().evaluate(img => (img as HTMLImageElement).naturalWidth)).toBe(1);
     await note().click();
     await expect(comment()).toBeVisible();
-    await open('账号 B');
+    await selectGroup(page, '账号 B');
     await expect(comment()).toHaveCount(0);
-    await open('账号 A');
+    await selectGroup(page, '账号 A');
     await expect(comment()).toBeVisible();
     await open('平台账号');
     await open('消息');
@@ -238,9 +239,9 @@ test('comments survive navigation, directory migration and restart, and reminder
     const inbox = page.getByRole('region', { name: '收件箱评论列表' });
     await open('同步收到的评论');
     await expect(inbox.getByText('演示账号 A的原评论', { exact: true })).toBeVisible();
-    await open('账号 B');
+    await selectGroup(page, '账号 B');
     await expect(inbox.getByText('演示账号 A的原评论', { exact: true })).toHaveCount(0);
-    await open('账号 A');
+    await selectGroup(page, '账号 A');
     await expect(page.getByRole('button', { name: '同步收到的评论' })).toBeEnabled();
     await expect(inbox.getByText('演示账号 A的原评论', { exact: true })).toBeVisible();
 
@@ -252,7 +253,7 @@ test('comments survive navigation, directory migration and restart, and reminder
     await open('设置');
     await page.getByRole('checkbox', { name: '小红书新评论提醒' }).check();
     await expect(page.getByText('已保存评论提醒设置。')).toBeVisible();
-    await open('账号 B');
+    await selectGroup(page, '账号 B');
     await writeFile(path.join(dataDir, 'new-comment'), '');
     await expect(page.getByLabel('1 条未读评论')).toBeVisible();
     const notifications = () => app.evaluate(() =>

@@ -152,6 +152,7 @@ def unpack_runtime(archive, destination):
 class Whisper:
     def __init__(self, root):
         self.home = Path(os.environ.get("RELAYFOLD_CAPTION_HOME") or root / "caption-models").resolve()
+        self.preparing = asyncio.Lock()
 
     async def prepare(self, progress):
         if platform.system() != "Windows" or platform.machine().lower() not in {"amd64", "x86_64"}:
@@ -176,7 +177,8 @@ class Whisper:
         return runtime / "whisper-cli.exe"
 
     async def transcribe(self, source, language, progress):
-        executable = await self.prepare(progress)
+        async with self.preparing:
+            executable = await self.prepare(progress)
         with tempfile.TemporaryDirectory(prefix="speech-", dir=self.home) as folder:
             root = Path(folder)
             progress("audio", None, "正在提取视频音频")

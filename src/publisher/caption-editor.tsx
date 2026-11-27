@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { errorMessage, fileName } from './model';
 import { ScriptReviewPanel } from './script-review-panel';
@@ -37,8 +36,9 @@ function editable(document: CaptionDocument): EditableCue[] {
   return document.cues.map(cue => ({ start: stamp(cue.startMs), end: stamp(cue.endMs), text: cue.text }));
 }
 
-export function CaptionEditor({ asset, caption, drafts, onUseForSynthesis }: {
-  asset: MaterialAsset; caption?: CaptionSummary; drafts: RefObject<Map<string, CaptionDraft>>; onUseForSynthesis: () => void;
+export function CaptionEditor({ asset, caption, drafts, review, onTimeline, onReview, onUseForSynthesis }: {
+  asset: MaterialAsset; caption?: CaptionSummary; drafts: RefObject<Map<string, CaptionDraft>>;
+  review: boolean; onTimeline: () => void; onReview: () => void; onUseForSynthesis: () => void;
 }) {
   const [document, setDocument] = useState<CaptionDocument>();
   const [draft, setDraft] = useState<CaptionDraft | undefined>(() => drafts.current.get(asset.id));
@@ -47,7 +47,6 @@ export function CaptionEditor({ asset, caption, drafts, onUseForSynthesis }: {
   const [replace, setReplace] = useState(false);
   const [pending, setPending] = useState(false);
   const [page, setPage] = useState(0);
-  const [rightTab, setRightTab] = useState('timeline');
   const [focusCue, setFocusCue] = useState<number>();
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -87,7 +86,7 @@ export function CaptionEditor({ asset, caption, drafts, onUseForSynthesis }: {
   function openCue(index: number) {
     setPage(Math.floor(index / pageSize));
     setFocusCue(index);
-    setRightTab('timeline');
+    onTimeline();
   }
 
   function discardDraft() {
@@ -148,7 +147,7 @@ export function CaptionEditor({ asset, caption, drafts, onUseForSynthesis }: {
   return <div className="grid min-h-0 gap-4 lg:h-full lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.2fr)]">
     <div className="min-w-0 space-y-3 lg:overflow-y-auto">
       <VideoPreview asset={asset} video={video} cues={previewCues} />
-      <Card className="workspace-panel">
+      {(!review || !revision || busy) && <Card className="workspace-panel">
         <CardHeader><CardTitle>字幕来源</CardTitle><CardDescription>{subtitleDetection}</CardDescription></CardHeader>
         <CardContent className="grid gap-3">
           {track && <div className="flex flex-wrap items-center gap-2">
@@ -181,20 +180,21 @@ export function CaptionEditor({ asset, caption, drafts, onUseForSynthesis }: {
           {caption?.status === 'failed' && <ErrorNotice>{caption.detail}</ErrorNotice>}
           {caption?.status === 'canceled' && <p className="text-xs text-muted-foreground">{caption.detail}</p>}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
-    <Card className="workspace-panel min-h-0 min-w-0 gap-0 lg:overflow-hidden">
-      <Tabs value={rightTab} onValueChange={setRightTab} className="grid min-h-0 gap-0 lg:h-full lg:grid-rows-[auto_minmax(0,1fr)]">
+    <Card className="workspace-panel grid min-h-0 min-w-0 gap-0 lg:h-full lg:grid-rows-[auto_minmax(0,1fr)] lg:overflow-hidden">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <TabsList aria-label="字幕核对工具">
-            <TabsTrigger value="timeline">时间轴</TabsTrigger>
-            <TabsTrigger value="script">脚本核对</TabsTrigger>
-          </TabsList>
-          {!!cues.length && <Badge variant="secondary">{caption?.source === 'extract' ? '已有字幕' : '语音识别'} · {cues.length} 条</Badge>}
+          <CardTitle>{review ? '原稿与字幕' : '字幕时间轴'}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            {!!cues.length && <Badge variant="secondary">{caption?.source === 'extract' ? '已有字幕' : '语音识别'} · {cues.length} 条</Badge>}
+            <Button type="button" variant="ghost" size="sm" onClick={review ? onTimeline : onReview}>
+              {review ? '返回字幕时间轴' : '前往脚本核对'}
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <TabsContent value="timeline" className="min-h-0 grid-rows-[minmax(0,1fr)_auto] data-active:grid">
+      {!review ? <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto]">
       <CardContent aria-label="字幕列表" className="min-h-0 space-y-2 lg:overflow-y-auto">
         {cues.length ? <ol className="grid gap-2">
           {cues.slice(first, first + pageSize).map((cue, offset) => {
@@ -243,15 +243,11 @@ export function CaptionEditor({ asset, caption, drafts, onUseForSynthesis }: {
           <Film data-icon="inline-start" />用此字幕合成
         </Button>
       </CardFooter>
-      </TabsContent>
-      <TabsContent value="script" className="min-h-0 lg:overflow-y-auto">
-        <CardContent className="pb-2">
+      </div> : <CardContent className="min-h-0 pb-2 lg:overflow-y-auto">
           <ScriptReviewPanel assetId={asset.id} revision={revision} hasDraft={changed} caption={caption}
             hasTextTrack={!!track} hasAudio={asset.has_audio !== false}
             onPlay={ms => playFrom(video.current, ms)} onEdit={openCue} />
-        </CardContent>
-      </TabsContent>
-      </Tabs>
+        </CardContent>}
     </Card>
   </div>;
 }

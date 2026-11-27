@@ -23,6 +23,7 @@ from materials import Materials
 from material_captions import MaterialCaptions
 from material_synthesis import MaterialSynthesis
 from script_review import ScriptReview
+from voice_workspace import VoiceWorkspace
 
 DOUYIN_DRAFT_FILE = "douyin-message-draft.dat"
 
@@ -68,6 +69,7 @@ class Worker:
         self.captions = MaterialCaptions(self.materials, root)
         self.synthesis = MaterialSynthesis(self.materials, self.captions)
         self.script_review = ScriptReview(self.materials, self.captions)
+        self.voice = VoiceWorkspace(self.store, root, self.captions.whisper, send)
         self.followups = set()
         self.queued = asyncio.Event()
         self.queued.set()
@@ -79,6 +81,7 @@ class Worker:
         return self.locks.setdefault(binding_id, asyncio.Lock())
 
     async def shutdown(self):
+        await self.voice.cancel()
         await self.materials.close()
         await self.captions.close()
         await self.synthesis.close()
@@ -385,6 +388,8 @@ class Worker:
         self.changed()
 
     async def dispatch(self, method, args):
+        if method.startswith("voice."):
+            return await self.voice.dispatch(method[6:], args)
         if method == "materials.snapshot":
             return {**self.materials.snapshot(), "captions": self.captions.summaries(), "renders": self.synthesis.summaries()}
         if method == "materials.asset":
@@ -427,6 +432,8 @@ class Worker:
             return await self.synthesis.cancel(args.get("id"))
         if method == "state":
             return self.store.state()
+        if method == "workbench.activity":
+            return self.store.workbench_activity(args.get("group_id"))
         if method == "groups.create":
             group_id = self.store.create_group(args["name"], args.get("mode", "regular"))
             self.store.select_group(group_id)

@@ -29,6 +29,7 @@ test('a scheduled batch survives restart and runs from the tray with its origina
     await app.evaluate(({ dialog }, file) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
     }, media);
+    await page.getByRole('button', { name: '新建发布', exact: true }).click();
     await page.getByRole('button', { name: '选择本地视频' }).click();
     await page.getByPlaceholder('输入视频标题').fill('托盘定时验收');
     await page.getByRole('button', { name: '全选', exact: true }).click();

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { _electron, expect, test } from '@playwright/test';
+import { selectGroup } from './workspace-navigation';
 
 const completedDownload = [
   'import asyncio, sys',
@@ -80,28 +81,31 @@ test('download handoff and inline caption editing are separate from arbitrary lo
     await page.getByRole('button', { name: '视频下载', exact: true }).click();
     await expect(page.getByRole('heading', { name: '视频下载' })).toBeVisible();
     await expect(page.getByRole('tab', { name: '合成字幕' })).toHaveCount(0);
-    await page.getByRole('button', { name: '送到视频处理', exact: true }).click();
-    await expect(page.getByRole('heading', { name: '视频处理' })).toBeVisible();
+    await page.getByRole('button', { name: '送去提取字幕', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '提取字幕' })).toBeVisible();
     await expect(page.getByRole('combobox', { name: '选择待提取的视频' })).toContainText('下载样片');
-    const extract = page.getByRole('tabpanel', { name: '提取字幕' });
+    const extract = page.getByRole('region', { name: '提取字幕' });
     const extractionVideo = extract.locator('video');
     await expect.poll(() => extractionVideo.evaluate((element: HTMLVideoElement) => element.readyState)).toBeGreaterThanOrEqual(1);
     await expect(extract.getByRole('textbox', { name: '第 1 条字幕' })).toHaveCount(0);
     await expect(extract.getByText('检测到内封文字字幕，可直接提取。')).toBeVisible();
-    await extract.getByRole('tab', { name: '脚本核对', exact: true }).click();
-    const review = extract.getByRole('tabpanel', { name: '脚本核对', exact: true });
+    await page.getByRole('button', { name: '脚本核对', exact: true }).click();
+    const review = page.getByRole('region', { name: '脚本核对', exact: true });
     await review.getByRole('button', { name: '导入 Word' }).click();
     await expect(review.getByText('原稿.docx', { exact: true })).toBeVisible();
-    await expect(extract.getByText('已有字幕 · 2 条', { exact: true })).toBeVisible();
-    await extract.getByRole('tab', { name: '时间轴', exact: true }).click();
+    await expect(review.getByText('已有字幕 · 2 条', { exact: true })).toBeVisible();
+    await review.getByRole('button', { name: '返回字幕时间轴', exact: true }).click();
     await extract.getByRole('button', { name: '播放第 2 条', exact: true }).click();
     await expect(extract.getByLabel('实时字幕')).toHaveText('跳到第二句');
     expect(await extractionVideo.evaluate((element: HTMLVideoElement) => element.currentTime)).toBeGreaterThanOrEqual(2);
     await extractionVideo.evaluate((element: HTMLVideoElement) => element.pause());
     const first = extract.getByRole('textbox', { name: '第 1 条字幕', exact: true });
     await first.fill('已校对的台词');
-    await page.getByRole('tab', { name: '合成字幕' }).click();
-    await page.getByRole('tab', { name: '提取字幕' }).click();
+    await selectGroup(page, '账号 B');
+    await expect(page.getByRole('combobox', { name: '选择待提取的视频' })).toContainText('下载样片');
+    await expect(first).toHaveValue('已校对的台词');
+    await page.getByRole('button', { name: '合成字幕', exact: true }).click();
+    await page.getByRole('button', { name: '提取字幕', exact: true }).click();
     await expect(first).toHaveValue('已校对的台词');
     await extract.getByRole('button', { name: '保存字幕' }).click();
     await expect(extract.getByText('字幕已保存。')).toBeVisible();
@@ -109,30 +113,30 @@ test('download handoff and inline caption editing are separate from arbitrary lo
     await expect(extract.getByText('已导出 checked.srt')).toBeVisible();
     await expect(readFile(exported, 'utf8')).resolves.toContain('已校对的台词');
 
-    await extract.getByRole('tab', { name: '脚本核对', exact: true }).click();
+    await extract.getByRole('button', { name: '前往脚本核对', exact: true }).click();
     await expect(review.getByText('原稿.docx', { exact: true })).toBeVisible();
     await expect(review.getByText('1 处差异', { exact: true })).toBeVisible();
     await expect(review.getByText('讲稿', { exact: true })).toBeVisible();
     await expect(review.getByText('台词', { exact: true })).toBeVisible();
     await review.getByRole('button', { name: '试听 00:00.2' }).click();
-    await expect(extract.getByLabel('实时字幕')).toHaveText('已校对的台词');
-    await extractionVideo.evaluate((element: HTMLVideoElement) => element.pause());
+    await expect(review.getByLabel('实时字幕')).toHaveText('已校对的台词');
+    await review.locator('video').evaluate((element: HTMLVideoElement) => element.pause());
     await review.getByRole('button', { name: '标记已核对' }).click();
     await expect(review.getByText('已核对 1', { exact: true })).toBeVisible();
-    await extract.getByRole('tab', { name: '时间轴', exact: true }).click();
-    await extract.getByRole('tab', { name: '脚本核对', exact: true }).click();
+    await review.getByRole('button', { name: '返回字幕时间轴', exact: true }).click();
+    await extract.getByRole('button', { name: '前往脚本核对', exact: true }).click();
     await expect(review.getByText('已核对 1', { exact: true })).toBeVisible();
     await review.getByRole('button', { name: '到时间轴修改' }).click();
     await expect(first).toBeFocused();
     await first.fill('已校对的讲稿');
     await extract.getByRole('button', { name: '保存字幕' }).click();
     await expect(extract.getByText('字幕已保存。')).toBeVisible();
-    await extract.getByRole('tab', { name: '脚本核对', exact: true }).click();
+    await extract.getByRole('button', { name: '前往脚本核对', exact: true }).click();
     await expect(review.getByText('原稿和字幕一致。', { exact: true })).toBeVisible();
-    await extract.getByRole('tab', { name: '时间轴', exact: true }).click();
+    await review.getByRole('button', { name: '返回字幕时间轴', exact: true }).click();
 
     await extract.getByRole('button', { name: '用此字幕合成' }).click();
-    const synthesis = page.getByRole('tabpanel', { name: '合成字幕' });
+    const synthesis = page.getByRole('region', { name: '合成字幕' });
     await expect(synthesis.getByRole('combobox', { name: '已保存的字幕' })).toContainText('下载样片');
     await page.getByRole('button', { name: '导入本地视频', exact: true }).click();
     await expect(page.getByRole('combobox', { name: '选择目标视频' })).toContainText('another-video');
@@ -162,14 +166,13 @@ test('download handoff and inline caption editing are separate from arbitrary lo
     await synthesis.getByRole('button', { name: '用合成视频发布', exact: true }).click();
     await expect(page.getByRole('heading', { name: '新建发布', exact: true })).toBeVisible();
     await expect(page.getByText(path.basename(rendered), { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '视频处理', exact: true }).click();
-    await page.getByRole('tab', { name: '提取字幕', exact: true }).click();
+    await page.getByRole('button', { name: '提取字幕', exact: true }).click();
     await page.getByRole('combobox', { name: '选择待提取的视频' }).click();
     await page.getByRole('option', { name: 'another-video · 本地', exact: true }).click();
-    await extract.getByRole('tab', { name: '脚本核对', exact: true }).click();
+    await extract.getByRole('button', { name: '前往脚本核对', exact: true }).click();
     await review.getByRole('button', { name: '导入 Word' }).click();
     await expect(review.getByText('未发现可提取的文字字幕。可在左侧点「从语音生成」，完成后自动比对。')).toBeVisible();
-    await expect(extract.getByRole('button', { name: '从语音生成', exact: true })).toBeEnabled();
+    await expect(review.getByRole('button', { name: '从语音生成', exact: true })).toBeEnabled();
   } finally {
     await app.close();
   }

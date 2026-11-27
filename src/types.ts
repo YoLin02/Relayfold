@@ -72,6 +72,9 @@ declare global {
       materialAction<T = void>(action: 'select' | 'directory' | 'reveal' | 'publish' | 'preview' | 'export-caption' | 'synthesize' | 'import-srt' | 'import-word',
         args?: { id: string; source?: SynthesisSource }): Promise<T>;
       subscribeMaterials(callback: () => void): () => void;
+      voiceAction<T = void>(action: 'directory' | 'model' | 'runtime' | 'reference' | 'import' | 'preview' | 'export',
+        args?: { model?: string; id?: string; kind?: 'reference' | 'output' }): Promise<T | null>;
+      subscribeVoice(callback: () => void): () => void;
       selectCommentCache(): Promise<string | null>;
       takeCommentDestination(): Promise<CommentDestination | null>;
       openCommentSource(destination: CommentDestination): Promise<void>;

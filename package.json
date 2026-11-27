@@ -1,9 +1,9 @@
 {
   "name": "relayfold",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "productName": "Relayfold",
   "private": true,
-  "description": "Windows 本地多账号视频分发台",
+  "description": "面向剪辑师和内容团队的 Windows 本地视频制作与交付工作台",
   "main": "electron/bootstrap.cjs",
   "type": "module",
   "scripts": {

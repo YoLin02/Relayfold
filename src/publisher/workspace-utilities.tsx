@@ -8,7 +8,7 @@ import type { PublisherWorkspace } from './use-workspace';
 import { ErrorNotice, PlatformMark } from './workspace-ui';
 
 const help = [
-  { id: 'groups', label: '怎么添加另一套账号？', description: '点击侧栏「账号」旁的＋。创建后进入平台账号页，逐个平台登录并确认绑定。' },
+  { id: 'groups', label: '怎么添加另一套账号？', description: '点击左下角的发布组头像，再选「新建发布组」。创建后进入平台账号页，逐个平台登录并确认绑定。' },
   { id: 'sessions', label: '为什么发布目标里找不到平台？', description: '目标只显示当前账号组内已绑定、符合平台范围且支持当前内容类型的平台。在「平台账号」中可以查看绑定状态。' },
   { id: 'publish', label: '怎么为每个平台填写不同内容？', description: '勾选支持差异化发布的平台，然后在素材与文案区切换平台标签页。改过的字段单独提交，其余沿用通用内容。群发前可以并排核对。' },
 ] as const;
@@ -22,7 +22,7 @@ export function WorkspaceUtilities({ workspace }: { workspace: PublisherWorkspac
       if (!canShortcut || event.defaultPrevented || event.isComposing
         || !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
       event.preventDefault();
-      update({ utility: 'search', error: '' });
+      update({ utility: 'search', groupMenuOpen: false, error: '' });
     }
     window.addEventListener('keydown', shortcut);
     return () => window.removeEventListener('keydown', shortcut);

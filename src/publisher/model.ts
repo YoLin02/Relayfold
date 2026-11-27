@@ -1,4 +1,4 @@
-import { Download, Film, History, Image, MessageSquareText, Send, UserRound, Video } from 'lucide-react';
+import { AudioLines, Captions, Download, FileCheck2, Film, History, Image, LayoutDashboard, MessageSquareText, Send, UserRound, Video } from 'lucide-react';
 import type { Binding, Draft, Group, GroupMode, Kind, PlatformRegion, PublishContent, Task, TaskStatus } from '@/types';
 
 export const contentKinds = {
@@ -32,14 +32,21 @@ export const platformRegions = {
   international: { label: '国外平台', category: '海外', examples: 'TikTok、YouTube、Medium 等' },
 } satisfies Record<PlatformRegion, { label: string; category: string; examples: string }>;
 
-export const navigation = [
+export const workbench = { id: 'workbench', label: '工作台', icon: LayoutDashboard } as const;
+export const editingTools = [
   { id: 'video-download', label: '视频下载', icon: Download },
-  { id: 'video-processing', label: '视频处理', icon: Film },
+  { id: 'subtitle-extract', label: '提取字幕', icon: Captions },
+  { id: 'script-review', label: '脚本核对', icon: FileCheck2 },
+  { id: 'subtitle-synthesis', label: '合成字幕', icon: Film },
+  { id: 'voice', label: '配音与音色', icon: AudioLines },
+] as const;
+export const publishingTools = [
   { id: 'publish', label: '新建发布', icon: Send },
   { id: 'accounts', label: '平台账号', icon: UserRound },
   { id: 'history', label: '发布记录', icon: History },
   { id: 'comments', label: '消息', icon: MessageSquareText },
 ] as const;
+export const navigation = [workbench, ...editingTools, ...publishingTools] as const;
 export type WorkspaceView = typeof navigation[number]['id'];
 export type View = WorkspaceView | 'settings';
 
