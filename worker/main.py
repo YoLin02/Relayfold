@@ -18,6 +18,13 @@ from comment_workspace import CommentWorkspace
 from publish_content import IMAGE_EXTENSIONS, local_file, resolve_content
 import session_backup
 from store import Store, new_id, validate_schedule
+from xhs_messages import CACHE as PRIVATE_MESSAGE_CACHE, PrivateMessages
+from materials import Materials
+from material_captions import MaterialCaptions
+from material_synthesis import MaterialSynthesis
+from script_review import ScriptReview
+
+DOUYIN_DRAFT_FILE = "douyin-message-draft.dat"
 
 
 DECLARATIONS = {
@@ -55,7 +62,12 @@ class Worker:
         self.store = Store(root / "publisher.sqlite3")
         self.browser = browser_factory(self.profiles)
         self.locks = {}
-        self.comments = CommentWorkspace(self.store, self.browser, self.lock)
+        self.comments = CommentWorkspace(self.store, self.browser, self.lock, root, send)
+        self.messages = PrivateMessages(self.browser, self.profiles, self.lock, self.session_identity)
+        self.materials = Materials(self.store, root, send)
+        self.captions = MaterialCaptions(self.materials, root)
+        self.synthesis = MaterialSynthesis(self.materials, self.captions)
+        self.script_review = ScriptReview(self.materials, self.captions)
         self.followups = set()
         self.queued = asyncio.Event()
         self.queued.set()
@@ -65,6 +77,15 @@ class Worker:
 
     def lock(self, binding_id):
         return self.locks.setdefault(binding_id, asyncio.Lock())
+
+    async def shutdown(self):
+        await self.materials.close()
+        await self.captions.close()
+        await self.synthesis.close()
+        await self.comments.shutdown()
+        await self.browser.shutdown()
+        await asyncio.gather(*self.followups, return_exceptions=True)
+        self.store.db.close()
 
     def binding_with_settings(self, binding_id):
         binding = self.store.binding(binding_id)
@@ -178,11 +199,18 @@ class Worker:
                     await self.browser.close(binding_id)
             elif method == "accounts.delete":
                 self.store.delete_binding(binding_id)
+                self.comments.forget_bindings([binding_id])
                 await self.browser.close(binding_id)
                 await asyncio.to_thread(remove_managed_folders, self.profiles, [binding_id])
             elif method == "accounts.replace":
                 await self.browser.close(binding_id)
                 self.store.replace_binding(binding_id)
+                self.comments.forget_bindings([binding_id])
+                try:
+                    cache_file = DOUYIN_DRAFT_FILE if binding["platform"] == "douyin" else PRIVATE_MESSAGE_CACHE
+                    (self.profiles / binding_id / cache_file).unlink(missing_ok=True)
+                except OSError as exc:
+                    logging.warning("Could not clean up the old private-message cache (%s)", type(exc).__name__)
         self.changed()
 
     async def open_browser(self, binding, *, manage=False, douyin_video=False):
@@ -193,6 +221,36 @@ class Worker:
         except Exception as exc:
             logging.warning("Platform %s could not be opened: %s", binding["platform"], type(exc).__name__)
             raise ValueError(f"无法打开{PLATFORMS[binding['platform']].label}后台。请检查站点配置、本机 Chrome 和网络。") from exc
+
+    def message_account(self, args, platform="xiaohongshu"):
+        name = PLATFORMS[platform].label
+        binding_id = args.get("binding_id")
+        if not isinstance(binding_id, str):
+            raise ValueError(f"请选择有效的{name}账号。")
+        binding = self.store.binding(binding_id)
+        if binding["group_id"] != args.get("group_id") or binding["platform"] != platform:
+            raise ValueError(f"请在原发布组选择对应的{name}账号。")
+        if not binding["session_proof"]:
+            raise ValueError(f"请先绑定这个{name}账号。")
+        return binding
+
+    def douyin_message_draft(self, method, args):
+        binding_id = self.message_account(args, "douyin")["id"]
+        folder = self.profiles / binding_id
+        try:
+            if method == "messages.douyinDraft":
+                saved = session_backup.load(folder, binding_id, DOUYIN_DRAFT_FILE)
+                return saved if isinstance(saved, str) else ""
+            body = args.get("body")
+            if not isinstance(body, str) or len(body) > 4000:
+                raise ValueError("请输入最多 4000 字的草稿。")
+            if body.strip():
+                folder.mkdir(parents=True, exist_ok=True)
+                session_backup.save(folder, binding_id, body, DOUYIN_DRAFT_FILE)
+            else:
+                (folder / DOUYIN_DRAFT_FILE).unlink(missing_ok=True)
+        except OSError as exc:
+            raise ValueError("无法读写当前抖音账号的加密草稿。") from exc
 
     async def create_tasks(self, data):
         group = data["group_id"]
@@ -302,6 +360,7 @@ class Worker:
         if any((self.locks.get(key) and self.locks[key].locked()) or key in self.browser.retained for key in binding_ids):
             raise ValueError("此发布组有账号正在执行操作，请稍后再删除。")
         batch_ids = self.store.delete_group(group_id)
+        self.comments.forget_bindings(binding_ids)
         self.changed()
         await asyncio.gather(*(self.browser.close(binding_id) for binding_id in binding_ids))
         for binding_id in binding_ids:
@@ -326,6 +385,46 @@ class Worker:
         self.changed()
 
     async def dispatch(self, method, args):
+        if method == "materials.snapshot":
+            return {**self.materials.snapshot(), "captions": self.captions.summaries(), "renders": self.synthesis.summaries()}
+        if method == "materials.asset":
+            return self.materials.asset(args.get("id"))
+        if method == "materials.import":
+            return await self.materials.add(args.get("path"))
+        if method == "materials.resolve":
+            return await self.materials.resolve(args.get("url"))
+        if method == "materials.download":
+            return self.materials.enqueue(args.get("id"), args.get("height"), args.get("language", ""))
+        if method == "materials.cancel":
+            return await self.materials.cancel(args.get("id"))
+        if method == "materials.retry":
+            return self.materials.retry(args.get("id"))
+        if method == "materials.directory":
+            return self.materials.set_directory(args.get("path"))
+        if method == "materials.srt.import":
+            return await self.captions.import_srt(args.get("path"))
+        if method == "materials.caption.get":
+            return self.captions.details(args.get("id"))
+        if method == "materials.caption.start":
+            return self.captions.launch(args.get("id"), args.get("mode"), args.get("track", ""),
+                                        args.get("language", "auto"), replace=args.get("replace"))
+        if method == "materials.caption.cancel":
+            return await self.captions.cancel(args.get("id"))
+        if method == "materials.caption.save":
+            return self.captions.save(args.get("id"), args.get("revision"), args.get("cues"))
+        if method == "materials.caption.export":
+            return await self.captions.export(args.get("id"), args.get("destination"))
+        if method == "materials.script.import":
+            return await self.script_review.import_word(args.get("id"), args.get("path"))
+        if method == "materials.script.review":
+            return await self.script_review.review(args.get("id"))
+        if method == "materials.script.mark":
+            return await self.script_review.mark(args.get("id"), args.get("scriptId"), args.get("revision"),
+                                                 args.get("differenceId"), args.get("reviewed"))
+        if method == "materials.render.begin":
+            return self.synthesis.begin(args.get("id"), args.get("source"), args.get("destination"))
+        if method == "materials.render.cancel":
+            return await self.synthesis.cancel(args.get("id"))
         if method == "state":
             return self.store.state()
         if method == "groups.create":
@@ -349,6 +448,18 @@ class Worker:
             return
         if method == "settings.theme":
             self.store.set_accent_theme(args.get("theme"))
+            self.changed()
+            return
+        if method == "settings.commentMode":
+            self.store.set_comment_mode(args.get("mode"))
+            self.changed()
+            return
+        if method == "settings.commentCache":
+            self.comments.configure(args)
+            return self.comments.summary()
+        if method == "settings.commentAccount":
+            binding = self.comments.account(args.get("group_id"), args.get("binding_id"))
+            self.store.set_comment_account(binding["group_id"], binding["id"])
             self.changed()
             return
         if method == "accounts.add":
@@ -379,7 +490,14 @@ class Worker:
             return await self.delete_task(args["id"])
         if method == "tasks.diagnostics":
             return self.store.task_diagnostics(args["id"])
-        if method in {"comments.notes", "comments.list", "comments.prepare", "comments.send"}:
+        if method in {"messages.douyinDraft", "messages.saveDouyinDraft"}:
+            return self.douyin_message_draft(method, args)
+        if method in {"messages.snapshot", "messages.sync", "messages.cachedThread", "messages.thread",
+                      "messages.draft", "messages.saveDraft"}:
+            return await self.messages.command(method, self.message_account(args), args)
+        if method in {"comments.notes", "comments.list", "comments.inbox", "comments.prepare", "comments.send",
+                      "comments.summary", "comments.snapshot", "comments.inboxSnapshot", "comments.cover", "comments.read",
+                      "comments.children", "comments.more", "comments.locate", "comments.sourceLink"}:
             return await self.comments.command(method, args)
         raise ValueError("本地 Worker 收到未知操作。")
 
@@ -393,6 +511,7 @@ class Worker:
         self.changed()
 
         try:
+            await self.comments.yield_to_foreground(binding_id)
             async with self.lock(binding_id):
                 if binding_id in self.browser.retained:
                     raise SessionError("同一抖音账号仍有保留的发布页面。请核对该页面后重试这条任务。")
@@ -509,6 +628,7 @@ async def serve(root, browser_factory=Browser):
     worker = Worker(root, browser_factory)
     consumer = asyncio.create_task(worker.consume())
     scheduler = asyncio.create_task(worker.schedule())
+    comment_poll = asyncio.create_task(worker.comments.poll())
     calls = set()
 
     async def answer(request):
@@ -535,13 +655,11 @@ async def serve(root, browser_factory=Browser):
             calls.add(call)
             call.add_done_callback(calls.discard)
     finally:
-        pending = [consumer, scheduler, *calls]
+        pending = [consumer, scheduler, comment_poll, *calls]
         for task in pending:
             task.cancel()
         await asyncio.gather(*pending, return_exceptions=True)
-        await worker.browser.shutdown()
-        await asyncio.gather(*worker.followups, return_exceptions=True)
-        worker.store.db.close()
+        await worker.shutdown()
 
 
 def main(browser_factory=Browser):
@@ -552,6 +670,7 @@ def main(browser_factory=Browser):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(level=logging.WARNING)
+    logging.getLogger("comment_workspace").setLevel(logging.INFO)
     asyncio.run(serve(options.data_dir, browser_factory))
 
 

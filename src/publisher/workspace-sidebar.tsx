@@ -30,6 +30,10 @@ export function WorkspaceSidebar({ workspace }: { workspace: PublisherWorkspace 
                 <Icon aria-hidden="true" /><span>{label}</span>
               </SidebarMenuButton>
               {id === 'history' && activeTasks > 0 && <SidebarMenuBadge>{activeTasks}</SidebarMenuBadge>}
+              {id === 'comments' && !!state.commentSettings?.unread && <SidebarMenuBadge
+                aria-label={`${state.commentSettings.unread} 条未读评论`} className="text-primary">
+                {state.commentSettings.unread > 99 ? '99+' : state.commentSettings.unread}
+              </SidebarMenuBadge>}
             </SidebarMenuItem>)}
           </SidebarMenu>
         </SidebarGroupContent>

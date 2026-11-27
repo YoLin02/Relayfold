@@ -1,5 +1,5 @@
 const { app } = require('electron');
-const { mkdirSync } = require('node:fs');
+const { existsSync, mkdirSync } = require('node:fs');
 const path = require('node:path');
 const { productName, version } = require('../package.json');
 const { selectLaunch, Updater } = require('./updater.cjs');
@@ -7,7 +7,7 @@ const { readUpdateChannel } = require('./update-release.cjs');
 
 app.setName(productName);
 if (process.platform === 'win32') {
-  app.setAppUserModelId('Relayfold.Publisher');
+  app.setAppUserModelId(app.isPackaged ? 'Relayfold.Publisher' : process.execPath);
   app.commandLine.appendSwitch('disable-lcd-text');
 }
 
@@ -22,6 +22,10 @@ function start() {
     ? readUpdateChannel() : null;
   const bundledApp = app.getAppPath();
   const bundledRoot = app.isPackaged ? process.resourcesPath : bundledApp;
+  const captionHome = path.join(bundledRoot, 'caption-models');
+  if (app.isPackaged && !process.env.RELAYFOLD_CAPTION_HOME && existsSync(captionHome)) {
+    process.env.RELAYFOLD_CAPTION_HOME = captionHome;
+  }
   const folder = path.join(dataDir, 'updates');
   let update = channel ? selectLaunch(folder, version, channel.publicKey) : null;
   let appRoot = update ? path.join(update.root, 'app') : bundledApp;

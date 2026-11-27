@@ -1,190 +1,210 @@
 import { useEffect, useRef, useState } from 'react';
 import { FileText, LoaderCircle, MessageSquareText, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Binding } from '@/types';
+import { commentSyncTime, markCommentRead, useCommentSnapshot, type CommentSnapshot, type Note, type OriginalComment } from './comment-data';
+import { CommentInbox } from './comment-inbox';
+import { CommentThread, type ReplyControls, type ReplyStatus, type ReplyTarget, type SendResult } from './comment-thread';
+import { MessageAccountPicker } from './message-account-picker';
 import { errorMessage, isConnected } from './model';
 import type { PublisherWorkspace } from './use-workspace';
-import { ErrorNotice, WorkspaceField, WorkspaceHeading, WorkspaceSelect } from './workspace-ui';
+import { ErrorNotice } from './workspace-ui';
 
-type Note = { id: string; title: string; cover: string };
-type ReplyStatus = { status: 'sending' | 'sent' | 'failed' | 'needs_review'; detail: string };
-type NoteComment = { id: string; author: string; body: string; created_at: number | null; reply: ReplyStatus | null };
-type CommentList = { comments: NoteComment[]; has_more: boolean };
-type NoteScope = { group_id: string; binding_id: string; note_id: string };
-type Confirmation = { confirmation: string; account: string; note: string; author: string; comment: string; body: string };
-type ReplyTarget = { scope: NoteScope; commentId: string; confirmation: Confirmation };
-type SendResult = { target: ReplyTarget; reply: ReplyStatus };
-
-const replyLabels = { sending: '正在发送', sent: '已回复', failed: '发送失败', needs_review: '待核对' };
-
-function commentTime(value: number | null) {
-  if (value === null) return '';
-  const date = new Date(value > 100_000_000_000 ? value : value * 1000);
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('zh-CN', { dateStyle: 'short', timeStyle: 'short' });
-}
-
-function matches(left: NoteScope, right: NoteScope) {
-  return left.group_id === right.group_id && left.binding_id === right.binding_id && left.note_id === right.note_id;
-}
-
-function NoteComments({ note, binding, scope, onConfirm, result, sending }: {
-  note: Note; binding: Binding; scope: NoteScope; onConfirm: (target: ReplyTarget) => void; result: SendResult | null;
-  sending: boolean;
+function NoteComments({ noteId, account, binding, targetComment, titleHint, ...reply }: ReplyControls & {
+  noteId: string; account: string; binding: Binding; targetComment?: string; titleHint?: string;
 }) {
-  const [list, setList] = useState<CommentList>();
-  const [revision, refresh] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [answer, setAnswer] = useState<{ id: string; text: string }>();
-  const [preparing, setPreparing] = useState(false);
-  const active = useRef(false);
+  const { group_id, id: binding_id } = binding;
+  const scope = { group_id, binding_id, note_id: noteId };
+  const snapshot = useCommentSnapshot<CommentSnapshot>('comments.snapshot', group_id, binding_id, noteId);
+  const note = snapshot?.data?.note;
+  const thread = snapshot?.data?.thread;
+  const sync = snapshot?.data?.thread_sync;
+  const [requestError, setRequestError] = useState('');
+  const [requested, setRequested] = useState(false);
+  const automaticallyChecked = useRef(false);
+  const focused = useRef<string>(undefined);
+  const [locating, setLocating] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const target = thread?.comments.flatMap(comment => [comment, ...(comment.children ?? [])]).find(comment => comment.id === targetComment);
 
-  useEffect(() => {
-    active.current = true;
-    return () => { active.current = false; };
-  }, []);
-
-  useEffect(() => {
-    let current = true;
-    setLoading(true);
-    setError('');
-    void window.publisher.request<CommentList>('comments.list', scope)
-      .then(value => { if (current) setList(value); })
-      .catch(cause => { if (current) setError(errorMessage(cause)); })
-      .finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
-  }, [scope.group_id, scope.binding_id, scope.note_id, revision]);
-
-  async function review() {
-    if (!answer?.text.trim() || preparing || sending) return;
-    setPreparing(true);
-    setError('');
+  async function refresh(commentId?: string) {
+    setRequestError('');
+    setRequested(true);
     try {
-      const confirmation = await window.publisher.request<Confirmation>('comments.prepare', {
-        ...scope, comment_id: answer.id, body: answer.text,
-      });
-      if (active.current) onConfirm({ scope, commentId: answer.id, confirmation });
+      if (commentId) await window.publisher.request('comments.locate', { ...scope, comment_id: commentId });
+      else await window.publisher.request('comments.list', scope);
     } catch (cause) {
-      if (active.current) setError(errorMessage(cause));
+      setRequestError(errorMessage(cause));
     } finally {
-      if (active.current) setPreparing(false);
+      setRequested(false);
     }
   }
 
-  return <Card className="workspace-panel min-h-0 min-w-0 max-sm:[--card-spacing:--spacing(3)]">
+  useEffect(() => {
+    if (!snapshot?.data || snapshot.data.deleted || automaticallyChecked.current) return;
+    automaticallyChecked.current = true;
+    if (targetComment) return;
+    if (!thread || thread.comments.some(comment => comment.children_count === undefined || comment.ip_location === undefined) ||
+      Date.now() - thread.updated_at * 1000 > 5 * 60 * 1000) void refresh();
+  }, [snapshot?.data, thread]);
+
+  useEffect(() => {
+    if (!targetComment || !snapshot?.data || snapshot.data.deleted || target) return;
+    let active = true;
+    setLocating(true);
+    void window.publisher.request('comments.locate', { ...scope, comment_id: targetComment })
+      .catch(cause => { if (active) setRequestError(errorMessage(cause)); })
+      .finally(() => { if (active) setLocating(false); });
+    return () => { active = false; setLocating(false); };
+  }, [targetComment, !!snapshot?.data, snapshot?.data?.deleted, !!target, group_id, binding_id, noteId]);
+
+  useEffect(() => {
+    if (!target || focused.current === target.id) return;
+    focused.current = target.id;
+    const frame = requestAnimationFrame(() => {
+      const row = document.getElementById(`comment-thread-${target.id}`);
+      row?.scrollIntoView({ block: 'nearest' });
+      row?.focus({ preventScroll: true });
+    });
+    if (target.unread) void markCommentRead(scope, target.id).catch(cause => setRequestError(errorMessage(cause)));
+    return () => cancelAnimationFrame(frame);
+  }, [target, group_id, binding_id, noteId]);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    setRequestError('');
+    try {
+      await window.publisher.request('comments.more', scope);
+    } catch (cause) {
+      setRequestError(errorMessage(cause));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const loading = !snapshot || requested || locating || !!sync?.running;
+  const error = requestError || snapshot?.error || sync?.error || (snapshot?.data?.deleted ? '原笔记已删除。' : '');
+  const title = titleHint || note?.title || '笔记评论';
+
+  return <Card className="workspace-panel comment-panel">
     <CardHeader className="flex shrink-0 flex-row items-start justify-between gap-3">
       <div className="min-w-0 space-y-1">
-        <CardTitle className="line-clamp-2 break-words" title={note.title}>{note.title}</CardTitle>
-        <CardDescription>小红书 · {binding.label}</CardDescription>
+        <CardTitle className="line-clamp-2 break-words" title={title}>{title}</CardTitle>
+        <CardDescription>小红书 · {account}{thread && ` · 上次同步 ${commentSyncTime(thread.updated_at)}`}</CardDescription>
       </div>
-      <Button variant="ghost" size="icon-sm" aria-label="刷新评论" disabled={loading}
-        onClick={() => refresh(value => value + 1)}><RefreshCw className={loading ? 'animate-spin' : ''} /></Button>
+      <Button variant="ghost" size="icon-sm" aria-label="刷新评论" disabled={loading || snapshot?.data?.deleted}
+        onClick={() => void refresh(targetComment && !target ? targetComment : undefined)}><RefreshCw className={loading ? 'animate-spin' : ''} /></Button>
     </CardHeader>
     <CardContent role="region" aria-label="评论列表" tabIndex={0} className="comment-list-scroll grid gap-3">
       {error && <ErrorNotice>{error}</ErrorNotice>}
       {loading && <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
-        <LoaderCircle className="size-4 animate-spin" />正在加载评论…
+        <LoaderCircle className="size-4 animate-spin" />
+        {thread && targetComment && !target ? '正在定位这条回复…' : thread ? '正在更新评论…' : '正在加载原帖评论…'}
       </div>}
-      {!loading && list?.comments.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">这篇笔记还没有评论。</p>}
-      {list?.comments.map(comment => {
-        const reply = result && matches(result.target.scope, scope) && result.target.commentId === comment.id
-          ? result.reply : comment.reply;
-        const replyable = !reply || reply.status === 'failed';
-        return <article key={comment.id} className="grid gap-2 rounded-lg bg-muted/45 p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{comment.author || '小红书用户'}</span>
-            <span className="text-xs text-muted-foreground">{commentTime(comment.created_at)}</span>
-            {reply && <Badge variant={reply.status === 'failed' ? 'outline' : 'secondary'}>{replyLabels[reply.status]}</Badge>}
-          </div>
-          <p className="whitespace-pre-wrap break-words text-sm">{comment.body || '此评论没有可显示的文字。'}</p>
-          {reply && reply.status !== 'sending' && <p className="text-xs text-muted-foreground">{reply.detail}</p>}
-          {replyable && (answer?.id === comment.id ? <div className="grid gap-2 pt-1">
-            <WorkspaceField label={`以「${binding.label}」回复`}>
-              <Textarea placeholder="输入回复" value={answer.text} maxLength={500} disabled={preparing}
-                onChange={event => setAnswer({ ...answer, text: event.target.value })} />
-            </WorkspaceField>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" disabled={preparing} onClick={() => setAnswer(undefined)}>取消</Button>
-              <Button size="sm" disabled={preparing || sending || !answer.text.trim()} onClick={() => void review()}>核对回复</Button>
-            </div>
-          </div> : <Button variant="ghost" size="sm" className="justify-self-start" disabled={preparing || sending}
-            onClick={() => setAnswer({ id: comment.id, text: '' })}>回复</Button>)}
-        </article>;
-      })}
-      {list?.has_more && <p className="text-xs text-muted-foreground">当前显示首批评论。</p>}
+      {!loading && !error && thread?.comments.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">这篇笔记还没有评论。</p>}
+      {thread && <CommentThread comments={thread.comments} account={account} scope={scope} focusComment={targetComment} {...reply} />}
+      {thread?.has_more && <Button variant="outline" size="sm" className="justify-self-center"
+        disabled={loadingMore || loading} onClick={() => void loadMore()}>
+        {loadingMore ? '正在加载更多评论…' : '加载更多评论'}
+      </Button>}
     </CardContent>
   </Card>;
 }
 
-function MyNotes({ groupId, accounts, onConfirm, result, sending }: {
-  groupId: string; accounts: Binding[]; onConfirm: (target: ReplyTarget) => void; result: SendResult | null;
-  sending: boolean;
+function NoteCover({ note, binding, updated }: { note: Note; binding: Binding; updated?: number | null }) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [image, setImage] = useState<string | null>(null);
+  useEffect(() => {
+    if (!note.has_cover || !anchor.current) return;
+    let active = true;
+    const observer = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) return;
+      observer.disconnect();
+      void window.publisher.request<string | null>('comments.cover', {
+        group_id: binding.group_id, binding_id: binding.id, note_id: note.id,
+      }).then(value => { if (active && value) setImage(value); }).catch(() => {});
+    }, { rootMargin: '80px' });
+    observer.observe(anchor.current);
+    return () => { active = false; observer.disconnect(); };
+  }, [binding.id, binding.group_id, note.has_cover, note.id, updated]);
+
+  return <span ref={anchor} className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-muted-foreground">
+    {image ? <img src={image} alt="" className="size-full object-cover" onError={() => setImage(null)} />
+      : <FileText className="size-4" aria-hidden="true" />}
+  </span>;
+}
+
+function MyNotes({ binding, account, original, ...reply }: ReplyControls & {
+  binding: Binding; account: string; original?: OriginalComment;
 }) {
-  const [selectedAccount, setAccount] = useState('');
-  const binding = accounts.find(item => item.id === selectedAccount) || accounts[0];
-  const [state, setState] = useState<{ bindingId: string; notes: Note[]; selected?: string; loading: boolean; error: string }>();
-  const request = useRef(0);
-  const current = state?.bindingId === binding?.id ? state : undefined;
-  const selected = current?.notes.find(note => note.id === current.selected);
-  useEffect(() => () => { request.current++; }, []);
+  const targetNote = original?.note_id;
+  const key = `relayfold:comment-note:${binding.group_id}:${binding.id}`;
+  const [selectedId, selectNote] = useState(() => targetNote || localStorage.getItem(key) || undefined);
+  const [requestError, setRequestError] = useState('');
+  const [requested, setRequested] = useState(false);
+  const snapshot = useCommentSnapshot<CommentSnapshot>('comments.snapshot', binding.group_id, binding.id);
+  const notes = snapshot?.data?.notes;
+  const loading = requested || !!snapshot?.data?.notes_sync?.running;
+  const error = requestError || snapshot?.error || snapshot?.data?.notes_sync?.error;
+  const selected = selectedId && (notes?.some(note => note.id === selectedId) || selectedId === targetNote) ? selectedId : undefined;
 
   async function sync() {
-    if (!binding) return;
-    const version = ++request.current;
-    const bindingId = binding.id;
-    setState({ bindingId, notes: current?.notes || [], selected: current?.selected, loading: true, error: '' });
+    if (loading) return;
+    setRequested(true);
+    setRequestError('');
     try {
-      const notes = await window.publisher.request<Note[]>('comments.notes', { group_id: groupId, binding_id: bindingId });
-      if (version === request.current) setState({ bindingId, notes, selected: current?.selected, loading: false, error: '' });
+      await window.publisher.request('comments.notes', { group_id: binding.group_id, binding_id: binding.id });
     } catch (cause) {
-      if (version === request.current) setState({ bindingId, notes: current?.notes || [], selected: current?.selected,
-        loading: false, error: errorMessage(cause) });
+      setRequestError(errorMessage(cause));
+    } finally {
+      setRequested(false);
     }
   }
 
-  if (!binding) return <Card className="workspace-panel">
-    <CardContent className="py-8 text-sm text-muted-foreground">在「平台账号」绑定小红书后，就可以查看这个组的笔记。</CardContent>
-  </Card>;
-  return <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.35fr)] lg:grid-rows-[minmax(0,1fr)]">
-    <Card className="workspace-panel min-h-0 min-w-0 max-sm:[--card-spacing:--spacing(3)]">
-      <CardHeader className="shrink-0 gap-3 max-sm:gap-2">
+  return <div className="comment-columns">
+    <Card className="workspace-panel comment-panel">
+      <CardHeader className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <CardTitle>我的笔记</CardTitle>
-          <CardDescription>同步这个小红书账号主页的近期笔记。</CardDescription>
+          {snapshot?.data?.notes_at && <CardDescription>上次同步 {commentSyncTime(snapshot.data.notes_at)}</CardDescription>}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <WorkspaceSelect label="小红书账号" value={binding.id} className="min-w-32 flex-1"
-            options={accounts.map(account => ({ label: account.label, value: account.id }))}
-            onValueChange={value => { request.current++; setAccount(value); setState(undefined); }} />
-          <Button variant="outline" disabled={current?.loading} onClick={() => void sync()}>
-            <RefreshCw data-icon="inline-start" className={current?.loading ? 'animate-spin' : ''} />
-            {current?.loading ? '正在同步' : '同步笔记'}
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" disabled={loading} onClick={() => void sync()}>
+          <RefreshCw data-icon="inline-start" className={loading ? 'animate-spin' : ''} />
+          {loading ? '正在同步' : '同步笔记'}
+        </Button>
       </CardHeader>
       <CardContent role="region" aria-label="笔记列表" tabIndex={0} className="comment-list-scroll grid gap-1">
-        {current?.error && <ErrorNotice>{current.error}</ErrorNotice>}
-        {!current && <p className="py-6 text-center text-sm text-muted-foreground">同步后选择一篇笔记查看评论。</p>}
-        {current && !current.error && !current.loading && !current.notes.length && <p className="py-6 text-center text-sm text-muted-foreground">没有找到笔记。</p>}
-        {current?.notes.map(note => <Button key={note.id} variant={selected?.id === note.id ? 'secondary' : 'ghost'}
-          aria-pressed={selected?.id === note.id} disabled={current.loading} className="h-auto min-h-14 justify-start p-2"
-          onClick={() => setState({ ...current, selected: note.id })}>
-          {note.cover
-            ? <img src={note.cover} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-9 shrink-0 rounded-md bg-muted object-cover" />
-            : <FileText className="size-5 shrink-0 text-muted-foreground" />}
-          <span className="line-clamp-2 whitespace-normal text-left">{note.title}</span>
+        {error && <ErrorNotice>{error}</ErrorNotice>}
+        {original && !notes?.some(note => note.id === targetNote) && <Button
+          variant={selected === targetNote ? 'secondary' : 'ghost'} aria-pressed={selected === targetNote}
+          className="h-auto min-h-14 justify-start p-2" onClick={() => selectNote(targetNote)}>
+          <span className="grid size-11 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><FileText /></span>
+          <span className="min-w-0 flex-1 text-left">
+            <span className="block truncate">{original.note_title}</span>
+            <span className="block text-xs text-muted-foreground">来自收件箱</span>
+          </span>
+        </Button>}
+        {!error && !notes?.length && <p className="py-6 text-center text-sm text-muted-foreground">
+          {loading || !snapshot ? '正在读取笔记…' : notes ? '没有找到笔记。' : '同步后选择一篇笔记查看评论。'}
+        </p>}
+        {notes?.map(note => <Button key={note.id} variant={selected === note.id ? 'secondary' : 'ghost'}
+          aria-pressed={selected === note.id} className="h-auto min-h-14 justify-start p-2"
+          onClick={() => { selectNote(note.id); localStorage.setItem(key, note.id); }}>
+          <NoteCover note={note} binding={binding} updated={snapshot?.data?.notes_at} />
+          <span className="line-clamp-2 flex-1 whitespace-normal text-left">{note.title}</span>
+          {note.unread > 0 && <span className="text-xs tabular-nums text-primary" title={`${note.unread} 条未读评论`}>{note.unread}</span>}
         </Button>)}
       </CardContent>
     </Card>
-    {selected ? <NoteComments key={`${binding.id}:${selected.id}`} note={selected} binding={binding}
-      scope={{ group_id: groupId, binding_id: binding.id, note_id: selected.id }} onConfirm={onConfirm} result={result} sending={sending} />
-      : <Card className="workspace-panel min-h-0 justify-center"><CardContent className="grid justify-items-center gap-2 text-sm text-muted-foreground">
-        <MessageSquareText className="size-6" />选择笔记后查看评论
+    {selected ? <NoteComments key={selected} noteId={selected} binding={binding} account={account}
+      targetComment={selected === targetNote ? original?.comment_id : undefined}
+      titleHint={selected === targetNote ? original?.note_title : undefined} {...reply} />
+      : <Card className="workspace-panel comment-panel justify-center"><CardContent className="grid justify-items-center gap-2 text-sm text-muted-foreground">
+        <MessageSquareText className="size-6" aria-hidden="true" />选择笔记后查看评论
       </CardContent></Card>}
   </div>;
 }
@@ -192,9 +212,20 @@ function MyNotes({ groupId, accounts, onConfirm, result, sending }: {
 export function CommentsPage({ workspace }: { workspace: PublisherWorkspace }) {
   const group = workspace.group!;
   const accounts = workspace.bindings.filter(binding => binding.platform === 'xiaohongshu' && isConnected(binding));
+  const remembered = workspace.state.data?.comment_accounts?.[group.id];
+  const destination = workspace.state.commentDestination?.group_id === group.id ? workspace.state.commentDestination : undefined;
+  const [tab, setTab] = useState('received');
+  const [original, setOriginal] = useState<OriginalComment>();
+  const originalHere = original?.group_id === group.id ? original : undefined;
+  const selected = accounts.find(binding => binding.id === (originalHere?.binding_id ?? remembered)) || accounts[0];
+  useEffect(() => { if (destination) setTab('received'); }, [destination]);
   const [target, setTarget] = useState<ReplyTarget | null>(null);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
+  const controls: ReplyControls = { onConfirm: setTarget, result, sending };
+  const accountName = (binding: Binding) => group.mode === 'custom'
+    ? `${binding.label} · ${workspace.bindingName(binding)}`
+    : binding.label;
 
   async function send() {
     if (!target || sending) return;
@@ -213,9 +244,29 @@ export function CommentsPage({ workspace }: { workspace: PublisherWorkspace }) {
   }
 
   return <>
-    <WorkspaceHeading title="评论" description={`${group.name} · 小红书`} />
     {result && <Alert role="status"><AlertDescription>{result.target.confirmation.account} · {result.reply.detail}</AlertDescription></Alert>}
-    <MyNotes key={group.id} groupId={group.id} accounts={accounts} result={result} onConfirm={setTarget} sending={sending} />
+    <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <TabsList aria-label="评论视图">
+          <TabsTrigger value="received">收到评论</TabsTrigger>
+          <TabsTrigger value="full">完整评论</TabsTrigger>
+        </TabsList>
+        {tab === 'full' && selected && <MessageAccountPicker key={group.id} label="切换评论账号"
+          workspace={workspace} accounts={accounts} selected={selected} name={accountName}
+          onSelect={binding => { setOriginal(undefined); workspace.selectCommentAccount(binding); }} />}
+      </div>
+      <TabsContent value="received" className="flex min-h-0 flex-1 flex-col">
+        <CommentInbox groupId={group.id} accounts={accounts} accountName={accountName} destination={destination}
+          onOpenThread={value => { setOriginal(value); setTab('full'); }} {...controls} />
+      </TabsContent>
+      <TabsContent value="full" className="flex min-h-0 flex-1 flex-col">
+        {selected ? <MyNotes key={JSON.stringify([selected.id, originalHere?.note_id, originalHere?.comment_id])}
+          binding={selected} account={accountName(selected)} original={originalHere} {...controls} />
+          : <Card className="workspace-panel">
+            <CardContent className="py-8 text-sm text-muted-foreground">在「平台账号」绑定小红书后，就可以查看这个组的笔记。</CardContent>
+          </Card>}
+      </TabsContent>
+    </Tabs>
     <Dialog open={!!target} onOpenChange={open => { if (!open) setTarget(null); }}>
       <DialogContent>
         <DialogHeader>
@@ -224,12 +275,16 @@ export function CommentsPage({ workspace }: { workspace: PublisherWorkspace }) {
         </DialogHeader>
         {target && <div className="space-y-3 text-sm">
           <p>发送账号 <strong>{target.confirmation.account}</strong></p>
+          <p className="text-muted-foreground">{target.confirmation.group}</p>
           <p className="break-words">笔记 · {target.confirmation.note}</p>
           <div className="rounded-lg bg-muted p-3">
             <p className="font-medium">{target.confirmation.author || '小红书用户'}</p>
             <p className="whitespace-pre-wrap break-words text-muted-foreground">{target.confirmation.comment}</p>
           </div>
           <p className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3">{target.confirmation.body}</p>
+          {target.confirmation.previous_attempt_unknown && <Alert><AlertDescription>
+            上次发送结果仍待核对。确认后会发送这次编辑的回复。
+          </AlertDescription></Alert>}
         </div>}
         <DialogFooter>
           <Button variant="outline" onClick={() => setTarget(null)}>返回编辑</Button>

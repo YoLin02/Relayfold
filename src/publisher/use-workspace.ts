@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import type { AccentTheme, Binding, Draft, Group, GroupMode, Kind, PlatformInfo, PlatformRegion, PublishContent, State } from '@/types';
+import type { AccentTheme, Binding, CommentDestination, CommentSettings, Draft, Group, GroupMode, Kind, PlatformInfo, PlatformRegion, PublishContent, State } from '@/types';
 import { accentThemes } from './appearance';
 import { defaultHistoryFilter, type HistoryFilter } from './history';
 import { scheduleTimestamp } from './schedule';
+import type { CaptionDraft, VideoProcessingState } from './video-materials';
 import {
   contentKinds, customPlatforms, effectiveContent, emptyDraft, errorMessage, graphicFormats, isConnected, openStatuses,
   parseTags, platformOptions, platformRegions, textLength,
@@ -17,6 +18,7 @@ type WorkspaceState = {
   publishTab: PublishTab;
   graphicFormat: GraphicFormat;
   drafts: Record<string, Draft>;
+  videoProcessing: VideoProcessingState;
   category: AccountCategory;
   accountState: AccountState;
   search: string;
@@ -26,6 +28,9 @@ type WorkspaceState = {
   accountAdder?: { groupId: string; platform: string; count: string };
   settingsRegion: PlatformRegion | null;
   settingsTheme: AccentTheme | null;
+  commentSettings?: CommentSettings;
+  commentDestination?: CommentDestination;
+  queuedCommentDestination?: CommentDestination;
   account?: AccountDialog;
   confirmation?: Confirmation;
   pending: string | null;
@@ -35,6 +40,7 @@ type WorkspaceState = {
 };
 const initial: WorkspaceState = {
   view: 'publish', publishTab: 'video', graphicFormat: 'image', drafts: {},
+  videoProcessing: { tool: 'extract' },
   category: 'all', accountState: 'all', search: '', utility: null, historyFilter: defaultHistoryFilter,
   groupEditor: null, settingsRegion: null, settingsTheme: null,
   pending: null, error: '', connectionError: '', notice: '',
@@ -62,7 +68,9 @@ function checkContent(destinations: Destination[], kind: Kind, platforms: Record
 export function usePublisherWorkspace() {
   const [state, update] = useReducer(workspaceReducer, initial);
   const requestVersion = useRef(0);
+  const commentSettingsVersion = useRef(0);
   const actionLock = useRef(false);
+  const captionDrafts = useRef(new Map<string, CaptionDraft>());
 
   const refresh = useCallback(async () => {
     const version = ++requestVersion.current;
@@ -78,6 +86,30 @@ export function usePublisherWorkspace() {
     void refresh();
     return window.publisher.subscribe(() => void refresh());
   }, [refresh]);
+
+  const refreshCommentSettings = useCallback(async () => {
+    const version = ++commentSettingsVersion.current;
+    try {
+      const commentSettings = await window.publisher.request<CommentSettings>('comments.summary');
+      if (version === commentSettingsVersion.current) update({ commentSettings });
+    } catch {
+      // The base workspace can still load independently of the comment cache.
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshCommentSettings();
+    const takeDestination = () => {
+      void window.publisher.takeCommentDestination().then(destination => {
+        if (destination) update({ queuedCommentDestination: destination });
+      }).catch(() => {});
+    };
+    takeDestination();
+    const unsubscribe = window.publisher.subscribe(() => void refreshCommentSettings());
+    const unsubscribeComments = window.publisher.subscribeComments(() => void refreshCommentSettings());
+    const unsubscribeDestination = window.publisher.subscribeCommentDestination(takeDestination);
+    return () => { unsubscribe(); unsubscribeComments(); unsubscribeDestination(); };
+  }, [refreshCommentSettings]);
 
   async function run(key: string, operation: () => Promise<void>, onSuccess?: () => void) {
     if (actionLock.current) return;
@@ -98,6 +130,25 @@ export function usePublisherWorkspace() {
   const { data, search, category, accountState, pending, connectionError } = state;
   const groups = data?.groups || [];
   const group = groups.find(item => item.id === data?.active_group_id);
+  const destination = state.queuedCommentDestination;
+  useEffect(() => {
+    if (!destination || !data || pending || actionLock.current) return;
+    const valid = data.bindings.some(binding => binding.id === destination.binding_id &&
+      binding.group_id === destination.group_id && isConnected(binding));
+    if (!valid) {
+      update({ queuedCommentDestination: undefined });
+      return;
+    }
+    const show = () => update({
+      queuedCommentDestination: undefined, commentDestination: destination, view: 'comments', utility: null,
+      notice: '', error: '', settingsTheme: null,
+    });
+    if (group?.id === destination.group_id) show();
+    else {
+      update({ queuedCommentDestination: undefined });
+      void run('comment-destination', () => window.publisher.request('groups.select', { id: destination.group_id }), show);
+    }
+  }, [data, destination, group?.id, pending]);
   const region: PlatformRegion = data?.platform_region ?? 'domestic';
   const theme: AccentTheme = data?.accent_theme ?? 'neutral';
   const visibleTheme = state.view === 'settings' ? state.settingsTheme ?? theme : theme;
@@ -197,7 +248,10 @@ export function usePublisherWorkspace() {
   }
 
   function selectGroup(id: string) {
-    if (id !== group?.id) void run('group', () => window.publisher.request('groups.select', { id }));
+    if (id !== group?.id) {
+      update({ commentDestination: undefined });
+      void run('group', () => window.publisher.request('groups.select', { id }));
+    }
   }
 
   function jumpToGroup(id: string, binding?: Binding) {
@@ -210,9 +264,24 @@ export function usePublisherWorkspace() {
   }
 
   function changeView(view: View) {
-    update(current => view === current.view ? { utility: null } : {
-      view, utility: null, error: '', notice: '', settingsRegion: null, settingsTheme: null,
+    update(current => view === current.view ? { utility: null, commentDestination: undefined } : {
+      view, utility: null, error: '', notice: '', settingsRegion: null, settingsTheme: null, commentDestination: undefined,
     });
+  }
+  function useMaterial(file: string, groupId = group?.id) {
+    if (!groupId) return;
+    chooseFiles([file], groupId, 'video');
+    update(current => current.data?.active_group_id === groupId
+      ? { view: 'publish', publishTab: 'video', utility: null, notice: '', commentDestination: undefined } : {});
+  }
+  function changeVideoProcessing(patch: Partial<VideoProcessingState>) {
+    update(current => ({ videoProcessing: { ...current.videoProcessing, ...patch } }));
+  }
+  function processDownloadedVideo(id: string) {
+    update(current => ({
+      view: 'video-processing', utility: null, error: '', notice: '', commentDestination: undefined,
+      videoProcessing: { ...current.videoProcessing, tool: 'extract', extractId: id },
+    }));
   }
   function saveRegion() {
     const selected = state.settingsRegion;
@@ -235,6 +304,28 @@ export function usePublisherWorkspace() {
         notice: `已保存「${selected.name}」主题。`,
       }));
     });
+  }
+  function selectCommentAccount(binding: Binding) {
+    update({ commentDestination: undefined });
+    void run('comment-account', () => window.publisher.request('settings.commentAccount', {
+      group_id: binding.group_id, binding_id: binding.id,
+    }), () => {
+      update(current => ({ data: current.data && {
+        ...current.data, comment_accounts: { ...current.data.comment_accounts, [binding.group_id]: binding.id },
+      } }));
+    });
+  }
+  function updateCommentSettings(change: { directory?: string | null; notifications?: boolean }) {
+    void run('comment-cache', async () => {
+      const settings = await window.publisher.request<CommentSettings>('settings.commentCache', change);
+      commentSettingsVersion.current += 1;
+      update({ commentSettings: settings });
+    }, () => update({ notice: change.directory !== undefined ? '已保存评论缓存目录。' : '已保存评论提醒设置。' }));
+  }
+  function chooseCommentCache() {
+    void window.publisher.selectCommentCache().then(directory => {
+      if (directory) updateCommentSettings({ directory });
+    }).catch(error => update({ error: errorMessage(error) }));
   }
   function openAccountAdder() {
     if (group?.mode !== 'custom') return;
@@ -319,10 +410,12 @@ export function usePublisherWorkspace() {
     state, update, run, groups, group, draft, platforms, nameOf, bindingName, bindings, tasks, visibleBindings,
     boundGroups, searchableBindings, jumpToGroup,
     region, regionPlatforms, formats, kind, saveRegion, theme, visibleTheme, saveTheme,
+    selectCommentAccount, updateCommentSettings, chooseCommentCache,
     connected, destinations, customized, optionGroups, has, titleLimit, canSubmit, blockedReason, isBusy,
     activeTasks: tasks.filter(task => openStatuses.includes(task.status) || task.status === 'scheduled').length,
     othersInProgress: data?.tasks.filter(task => task.group_id !== group?.id && openStatuses.includes(task.status)).length || 0,
-    changeDraft, changeOverride, changeFiles, chooseFiles, selectGroup, changeView, openAccountAdder, chooseLogin, showConfirmation, confirm,
+    changeDraft, changeOverride, changeFiles, chooseFiles, selectGroup, changeView, useMaterial, openAccountAdder, chooseLogin, showConfirmation, confirm,
+    captionDrafts, changeVideoProcessing, processDownloadedVideo,
   };
 }
 

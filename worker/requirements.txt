@@ -2,3 +2,4 @@ playwright==1.65.2
 patchright==1.64.4
 Markdown==3.10.2
 httpx==0.28.1
+yt-dlp==2026.11.23

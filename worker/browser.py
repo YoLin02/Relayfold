@@ -20,6 +20,7 @@ PAGE_ACCOUNT = """() => {
     return { login, name: account || '' };
 }"""
 XHS_PROOF_PREFIX = "xhs-user:"
+XHS_WEB_HOME = "https://www.xiaohongshu.com/explore"
 DOUYIN_RECEIPT_SECONDS = 120
 DOUYIN_MANAGER = "https://creator.douyin.com/creator-micro/content/manage"
 DOUYIN_WORK_LIST = "/janus/douyin/creator/pc/work_list"
@@ -319,7 +320,10 @@ class Browser:
         platform = binding["platform"]
         settings = PLATFORMS[platform]
         parsed = urlparse(page.url)
-        if parsed.hostname not in allowed_hosts(binding) or parsed.scheme != "https" or re.search(r"/(?:log[-_]?in|sign[-_]?in|passport|checkpoint|authwall)", parsed.path):
+        hosts = allowed_hosts(binding)
+        if platform == "xiaohongshu":
+            hosts = hosts | {"www.xiaohongshu.com"}
+        if parsed.hostname not in hosts or parsed.scheme != "https" or re.search(r"/(?:log[-_]?in|sign[-_]?in|passport|checkpoint|authwall)", parsed.path):
             return None
         urls = [page.url, f"https://{parsed.netloc}/", *[f"https://{host}/" for host in settings.cookie_scopes]]
         cookies = await page.context.cookies(urls)

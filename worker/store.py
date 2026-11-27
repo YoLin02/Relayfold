@@ -24,6 +24,7 @@ def group_name(name):
 
 
 ACCENT_THEMES = ("neutral", "sky", "cyan", "violet")
+COMMENT_MODES = {"notes", "inbox"}
 SCHEDULE_GRACE_SECONDS = 60
 HISTORY_PAGE_SIZE = 50
 GROUP_MODES = {"regular", "custom"}
@@ -139,7 +140,7 @@ class Store:
             """, (now(), int(time()) - SCHEDULE_GRACE_SECONDS))
 
     def require_group(self, group_id):
-        row = self.db.execute("SELECT mode FROM groups WHERE id=?", (group_id,)).fetchone()
+        row = self.db.execute("SELECT name, mode FROM groups WHERE id=?", (group_id,)).fetchone()
         if not row:
             raise ValueError("发布组不存在。")
         return row
@@ -223,6 +224,16 @@ class Store:
             raise ValueError("请选择可用的主题。")
         with self.db:
             self.db.execute("INSERT OR REPLACE INTO settings VALUES ('accent_theme', ?)", (theme,))
+
+    def set_comment_mode(self, mode):
+        if mode not in COMMENT_MODES:
+            raise ValueError("请选择有效的评论页显示方式。")
+        with self.db:
+            self.db.execute("INSERT OR REPLACE INTO settings VALUES ('comment_mode', ?)", (mode,))
+
+    def set_comment_account(self, group_id, binding_id):
+        with self.db:
+            self.db.execute("INSERT OR REPLACE INTO settings VALUES (?, ?)", (f"comment_account:{group_id}", binding_id))
 
     def binding(self, binding_id):
         row = self.db.execute("SELECT * FROM bindings WHERE id=? AND active=1", (binding_id,)).fetchone()
@@ -452,6 +463,11 @@ class Store:
         active = self.db.execute("SELECT value FROM settings WHERE key='active_group'").fetchone()
         region = self.db.execute("SELECT value FROM settings WHERE key='platform_region'").fetchone()
         theme = self.db.execute("SELECT value FROM settings WHERE key='accent_theme'").fetchone()
+        comment_mode = self.db.execute("SELECT value FROM settings WHERE key='comment_mode'").fetchone()
+        comment_accounts = dict(self.db.execute("""
+            SELECT b.group_id, b.id FROM settings s JOIN bindings b ON b.id=s.value
+            WHERE s.key='comment_account:' || b.group_id AND b.active=1 AND b.platform='xiaohongshu'
+        """).fetchall())
         bindings = [dict(row) for row in self.db.execute("""
             SELECT id, group_id, platform, slot, label, login_status, checked_at FROM bindings WHERE active=1
             ORDER BY platform, slot
@@ -467,4 +483,6 @@ class Store:
         return {"groups": groups, "active_group_id": active["value"] if active else groups[0]["id"],
                 "platform_region": region["value"] if region else "domestic",
                 "accent_theme": theme["value"] if theme and theme["value"] in ACCENT_THEMES else "neutral",
+                "comment_mode": comment_mode["value"] if comment_mode and comment_mode["value"] in COMMENT_MODES else "notes",
+                "comment_accounts": comment_accounts,
                 "bindings": bindings, "tasks": tasks, "platforms": public_catalog()}

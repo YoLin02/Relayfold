@@ -1,9 +1,12 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Tray } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, shell, Tray } = require('electron');
 const { spawn } = require('node:child_process');
+const { existsSync } = require('node:fs');
 const { stat } = require('node:fs/promises');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { createInterface } = require('node:readline');
 const { productName } = require('../package.json');
+const { createDouyinPane } = require('./douyin-pane.cjs');
 
 function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup, recoverStartup }) {
 
@@ -16,15 +19,37 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
   let workerStopped = false;
   let installing = false;
   let sequence = 0;
+  let commentDestination;
+  let balloonDestination;
+  const commentNotifications = new Map();
   const pending = new Map();
   const previewableFiles = new Set();
   const thumbnails = new Map();
+  const douyinPane = createDouyinPane(request);
+  const requestTimeouts = {
+    'tasks.create': 300000,
+    'comments.inbox': 180000,
+    'comments.children': 110000,
+    'comments.more': 110000,
+    'comments.locate': 150000,
+    'comments.send': 150000,
+    'messages.thread': 115000,
+    'materials.resolve': 80000,
+  };
   const methods = new Set([
     'state', 'groups.create', 'groups.select', 'groups.rename', 'groups.delete', 'accounts.open', 'accounts.manage', 'accounts.confirm',
     'accounts.check', 'accounts.add', 'accounts.replace', 'accounts.delete', 'accounts.configure', 'tasks.create', 'tasks.retry', 'tasks.review',
     'tasks.reschedule', 'tasks.cancelSchedule', 'tasks.diagnostics', 'tasks.history', 'tasks.delete',
-    'settings.region', 'settings.theme',
-    'comments.notes', 'comments.list', 'comments.prepare', 'comments.send',
+    'settings.region', 'settings.theme', 'settings.commentMode', 'settings.commentAccount',
+    'settings.commentCache', 'comments.notes', 'comments.list', 'comments.inbox', 'comments.prepare', 'comments.send',
+    'comments.summary', 'comments.snapshot', 'comments.inboxSnapshot', 'comments.cover', 'comments.read',
+    'comments.children', 'comments.more', 'comments.locate',
+    'messages.snapshot', 'messages.sync', 'messages.cachedThread', 'messages.thread', 'messages.draft', 'messages.saveDraft',
+    'messages.douyinDraft', 'messages.saveDouyinDraft',
+    'materials.snapshot', 'materials.import', 'materials.resolve', 'materials.download', 'materials.cancel', 'materials.retry',
+    'materials.caption.get', 'materials.caption.start', 'materials.caption.cancel', 'materials.caption.save',
+    'materials.script.review', 'materials.script.mark',
+    'materials.render.cancel',
   ]);
 
   function notify() {
@@ -70,6 +95,18 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
           notify();
           return;
         }
+        if (message.event === 'comments') {
+          if (window && !window.isDestroyed()) window.webContents.send('publisher:comments-changed', message.group_id);
+          return;
+        }
+        if (message.event === 'materials') {
+          if (window && !window.isDestroyed()) window.webContents.send('publisher:materials-changed');
+          return;
+        }
+        if (message.event === 'comment-alert') {
+          showCommentNotification(message);
+          return;
+        }
         const request = pending.get(message.id);
         if (!request) return;
         clearTimeout(request.timer);
@@ -89,7 +126,7 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
       const timer = setTimeout(() => {
         pending.delete(id);
         reject(new Error('操作响应超时，请在任务记录中核对结果。'));
-      }, method === 'tasks.create' ? 300000 : 90000);
+      }, requestTimeouts[method] ?? 90000);
       pending.set(id, { resolve, reject, timer });
       child.stdin.write(`${JSON.stringify({ id, method, args })}\n`);
     });
@@ -110,6 +147,7 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
     });
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     window.webContents.on('will-navigate', event => event.preventDefault());
+    window.webContents.on('did-start-loading', () => douyinPane.close());
     const loaded = window.loadFile(path.join(appRoot, 'dist', 'index.html'));
     if (confirmStartup) {
       const retry = recoverStartup;
@@ -123,6 +161,7 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
       window.hide();
     });
     window.on('closed', () => {
+      douyinPane.close();
       window = null;
       previewableFiles.clear();
       thumbnails.clear();
@@ -136,6 +175,44 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
     window.focus();
   }
 
+  function openComment(destination) {
+    commentDestination = destination;
+    showWindow();
+    window.webContents.send('publisher:comment-destination');
+  }
+
+  function showCommentNotification({ destination, count, account }) {
+    if (quitting || !destination || !count) return;
+    const title = '小红书评论';
+    const body = `${account || '小红书账号'}收到 ${count} 条新评论`;
+    const icon = path.join(__dirname, 'relayfold.ico');
+    const balloon = () => {
+      if (!tray || quitting) return;
+      balloonDestination = destination;
+      tray.displayBalloon({ title, content: body, icon });
+    };
+    if (!Notification.isSupported()) {
+      balloon();
+      return;
+    }
+    const key = destination.binding_id;
+    commentNotifications.get(key)?.close();
+    try {
+      const notification = new Notification({ title, body, icon });
+      commentNotifications.set(key, notification);
+      const release = () => {
+        if (commentNotifications.get(key) === notification) commentNotifications.delete(key);
+      };
+      notification.on('click', () => { release(); openComment(destination); });
+      notification.on('close', release);
+      notification.on('failed', () => { release(); balloon(); });
+      notification.show();
+    } catch {
+      commentNotifications.delete(key);
+      balloon();
+    }
+  }
+
   function createTray() {
     if (process.platform !== 'win32') return;
     tray = new Tray(path.join(__dirname, 'relayfold.ico'));
@@ -146,6 +223,10 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
       { label: `退出 ${productName}`, click: () => app.quit() },
     ]));
     tray.on('click', showWindow);
+    tray.on('balloon-click', () => {
+      if (balloonDestination) openComment(balloonDestination);
+      balloonDestination = undefined;
+    });
   }
 
   function isPublisherFrame(event) {
@@ -229,6 +310,122 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
       result.filePaths.forEach(allowPreview);
       return result.filePaths;
     });
+    ipcMain.handle('publisher:select-comment-cache', async event => {
+      verifySender(event);
+      const { directory } = await request('comments.summary');
+      const result = await dialog.showOpenDialog(window, {
+        title: '选择评论缓存目录', defaultPath: directory, properties: ['openDirectory', 'createDirectory'],
+      });
+      return result.filePaths[0] ?? null;
+    });
+    ipcMain.handle('publisher:material-action', async (event, action, args) => {
+      verifySender(event);
+      if (installing) throw new Error('Relayfold 正在重启。');
+      if (action === 'select') {
+        const result = await dialog.showOpenDialog(window, {
+          title: '导入本地视频', properties: ['openFile', 'multiSelections'],
+          filters: [{ name: '视频', extensions: ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'] }],
+        });
+        return result.canceled ? [] : result.filePaths;
+      }
+      if (action === 'directory') {
+        const { directory } = await request('materials.snapshot');
+        const result = await dialog.showOpenDialog(window, {
+          title: '选择素材下载目录', defaultPath: directory, properties: ['openDirectory', 'createDirectory'],
+        });
+        if (result.canceled || !result.filePaths[0]) return null;
+        await request('materials.directory', { path: result.filePaths[0] });
+        return result.filePaths[0];
+      }
+      if (action === 'import-srt') {
+        const result = await dialog.showOpenDialog(window, {
+          title: '导入 SRT 字幕', properties: ['openFile'],
+          filters: [{ name: 'SubRip 字幕', extensions: ['srt'] }],
+        });
+        if (result.canceled || !result.filePaths[0]) return null;
+        return request('materials.srt.import', { path: result.filePaths[0] });
+      }
+      if (typeof args?.id !== 'string' || !/^[a-f0-9]{32}$/.test(args.id)) throw new Error('请选择有效的素材。');
+      const asset = await request('materials.asset', { id: args.id });
+      if (action === 'import-word') {
+        const result = await dialog.showOpenDialog(window, {
+          title: '导入 Word 脚本', properties: ['openFile'],
+          filters: [{ name: 'Word 脚本', extensions: ['docx'] }],
+        });
+        if (result.canceled || !result.filePaths[0]) return undefined;
+        return request('materials.script.import', { id: args.id, path: result.filePaths[0] });
+      }
+      if (action === 'preview') return asset.available && /\.(mp4|mov|webm|mkv|m4v)$/i.test(asset.path)
+        ? pathToFileURL(asset.path).href : null;
+      if (action === 'export-caption') {
+        const { cues } = await request('materials.caption.get', { id: args.id });
+        if (!cues.length) throw new Error('这条素材没有可导出的字幕。');
+        const parsed = path.parse(asset.path);
+        const result = await dialog.showSaveDialog(window, {
+          title: '导出 SRT 字幕', defaultPath: path.join(asset.available ? parsed.dir : app.getPath('documents'), parsed.name + '-字幕.srt'),
+          filters: [{ name: 'SubRip 字幕', extensions: ['srt'] }],
+        });
+        if (result.canceled || !result.filePath) return null;
+        await request('materials.caption.export', { id: args.id, destination: result.filePath });
+        return result.filePath;
+      }
+      if (!asset.available) throw new Error('素材文件已移动或删除。');
+      if (action === 'synthesize') {
+        if (!args.source || !['saved', 'srt'].includes(args.source.kind)) throw new Error('请选择字幕来源。');
+        const parsed = path.parse(asset.path);
+        const name = Array.from(parsed.name).slice(0, 100).join('') + '-字幕版';
+        let destination = path.join(parsed.dir, name + '.mp4');
+        for (let edit = 2; existsSync(destination); edit++) {
+          destination = path.join(parsed.dir, name + '-' + edit + '.mp4');
+        }
+        const result = await dialog.showSaveDialog(window, {
+          title: '保存合成视频', defaultPath: destination,
+          filters: [{ name: 'MP4 视频', extensions: ['mp4'] }],
+        });
+        if (result.canceled || !result.filePath) return false;
+        await request('materials.render.begin', { id: args.id, source: args.source, destination: result.filePath });
+        return true;
+      }
+      if (action === 'reveal') return shell.showItemInFolder(asset.path);
+      if (action === 'publish') {
+        if (!/\.(mp4|mov)$/i.test(asset.path)) throw new Error('发布支持 MP4 和 MOV。');
+        allowPreview(asset.path);
+        return asset.path;
+      }
+      throw new Error('未知的素材操作。');
+    });
+    ipcMain.handle('publisher:comment-destination', event => {
+      verifySender(event);
+      const destination = commentDestination;
+      commentDestination = undefined;
+      return destination ?? null;
+    });
+    ipcMain.handle('publisher:open-comment-source', async (event, destination) => {
+      verifySender(event);
+      if (installing) throw new Error('Relayfold 正在重启。');
+      const noteId = destination?.note_id;
+      if (typeof noteId !== 'string' || !/^[a-f0-9]{24}$/i.test(noteId)) throw new Error('原帖标识无效。');
+      const link = new URL(await request('comments.sourceLink', destination));
+      if (link.origin !== 'https://www.xiaohongshu.com' || link.pathname !== `/explore/${noteId}` ||
+        link.username || link.password || link.hash) throw new Error('无法打开这篇小红书原帖。');
+      await shell.openExternal(link.href);
+    });
+    ipcMain.handle('publisher:open-douyin-messages', async (event, kind) => {
+      verifySender(event);
+      if (kind === 'private') return shell.openExternal('https://imdesktop.douyin.com/');
+      if (kind === 'comments') return shell.openExternal('https://creator.douyin.com/creator-micro/interactive/comment');
+      throw new Error('未知的抖音消息入口。');
+    });
+    ipcMain.handle('publisher:douyin-pane', (event, action, args) => {
+      verifySender(event);
+      if (action === 'open') return douyinPane.open(window, args);
+      if (typeof args?.token !== 'string') throw new Error('抖音页面已关闭。');
+      if (action === 'close') return douyinPane.close(args.token);
+      if (action === 'layout') return douyinPane.layout(args.token, args.rect);
+      if (action === 'reload') return douyinPane.reload(args.token);
+      if (action === 'notifications') return douyinPane.notifications(args.token, args.enabled);
+      throw new Error('未知的抖音页面操作。');
+    });
     ipcMain.on('publisher:register-preview', (event, file) => {
       if (isPublisherFrame(event)) allowPreview(file);
     });
@@ -247,6 +444,7 @@ function start({ appRoot, dataDir, python, worker, createUpdater, confirmStartup
   app.on('window-all-closed', () => { app.quit(); });
   app.on('before-quit', event => {
     quitting = true;
+    douyinPane.close();
     if (!child || child.exitCode !== null || shuttingDown) return;
     event.preventDefault();
     shuttingDown = true;

@@ -8,3 +8,5 @@
 - 抖音图文入口、抖音与小红书的封面和话题交互参考 [social-auto-upload 对应版本](https://github.com/dreammis/social-auto-upload/tree/409d4fdd33f3eb0d946310af93633ddb5eebe1d5/uploader)，采用本项目现有的账号校验和单次提交机制。
 - 抖音视频上传步骤改编自 [social-auto-upload · DouYinVideo](https://github.com/dreammis/social-auto-upload/blob/409d4fdd33f3eb0d946310af93633ddb5eebe1d5/uploader/douyin_uploader/main.py)，随附 MIT 许可证。视频发布使用 Patchright 1.64.4，包内包含该依赖的许可证。
 - Windows 便携包中的 Electron、Python 和 Playwright 随附上游许可证文件。
+- 素材解析和下载使用 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 的 PyPI wheel（Unlicense），许可证随该依赖提供。媒体探测和字幕转换调用系统安装的 FFprobe 与 FFmpeg。
+- 字幕操作流程参考 [VideoCaptioner](https://github.com/WEIFENG2333/VideoCaptioner/blob/master/docs/guide/getting-started.md)。本地识别使用 [whisper.cpp v1.8.3](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.8.3)、[多语言 Whisper Small](https://huggingface.co/ggerganov/whisper.cpp) 和 [Silero VAD](https://github.com/snakers4/silero-vad)，许可证为 MIT。应用首次使用时可按校验值下载模型与 Windows x64 运行组件。

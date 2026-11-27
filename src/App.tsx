@@ -11,7 +11,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { PublishPage } from './publisher/publish-page';
 import { AccountsPage, HistoryPage } from './publisher/records-pages';
 import { SettingsPage } from './publisher/settings-page';
-import { CommentsPage } from './publisher/comments-page';
+import { MessagesPage } from './publisher/messages-page';
+import { VideoDownloadPage } from './publisher/video-download-page';
+import { VideoProcessingPage } from './publisher/video-processing-page';
 import { usePublisherWorkspace, type PublisherWorkspace } from './publisher/use-workspace';
 import { WorkspaceDialogs } from './publisher/workspace-dialogs';
 import { WorkspaceSidebar } from './publisher/workspace-sidebar';
@@ -19,7 +21,10 @@ import { ErrorNotice, WorkspaceBrand } from './publisher/workspace-ui';
 import { navigation } from './publisher/model';
 import { WorkspaceUtilities } from './publisher/workspace-utilities';
 
-const pages = { publish: PublishPage, accounts: AccountsPage, history: HistoryPage, comments: CommentsPage, settings: SettingsPage };
+const pages = {
+  'video-download': VideoDownloadPage, 'video-processing': VideoProcessingPage,
+  publish: PublishPage, accounts: AccountsPage, history: HistoryPage, comments: MessagesPage, settings: SettingsPage,
+};
 
 function WorkspaceHeader({ workspace }: { workspace: PublisherWorkspace }) {
   const { group, state: { view } } = workspace;
@@ -57,7 +62,7 @@ export function App() {
   const { state, group, othersInProgress } = workspace;
   const Page = pages[state.view];
   const viewport = useRef<HTMLDivElement>(null);
-  const comments = state.view === 'comments';
+  const contained = state.view === 'comments' || state.view === 'video-processing';
 
   useEffect(() => { viewport.current?.scrollTo(0, 0); }, [state.view, group?.id]);
   useLayoutEffect(() => {
@@ -70,8 +75,8 @@ export function App() {
       <SidebarInset className="workspace-stage min-h-0 min-w-0">
         <WorkspaceHeader workspace={workspace} />
         <div ref={viewport} data-slot="workspace-viewport"
-          className={`min-h-0 flex-1 ${comments ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'}`}>
-          <div className={`mx-auto w-full max-w-[84rem] min-w-0 gap-4 px-4 pt-5 pb-8 sm:px-6 sm:pt-7 lg:px-7 ${comments ? 'flex h-full min-h-0 flex-col max-sm:pb-4' : 'grid'}`}>
+          className={`min-h-0 flex-1 ${contained ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'}`}>
+          <div className={`mx-auto w-full max-w-[84rem] min-w-0 gap-4 px-4 pt-5 pb-8 sm:px-6 sm:pt-7 lg:px-7 ${contained ? 'flex h-full min-h-0 flex-col max-sm:pb-4' : 'grid'}`}>
             {state.connectionError && <ErrorNotice>{state.connectionError}</ErrorNotice>}
             {state.error && !state.account && !state.accountAdder && !state.confirmation && state.groupEditor === null && <ErrorNotice>{state.error}</ErrorNotice>}
             {state.notice && <Alert role="status"><CircleCheck /><AlertDescription>{state.notice}</AlertDescription></Alert>}

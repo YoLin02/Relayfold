@@ -61,6 +61,49 @@
   scrollbar-gutter: stable;
 }
 
+@utility comment-columns {
+  @apply grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.35fr)] lg:grid-rows-[minmax(0,1fr)];
+}
+
+@utility comment-panel {
+  @apply min-h-0 min-w-0 max-sm:[--card-spacing:--spacing(3)];
+}
+
+.received-comments {
+  container: received-comments / inline-size;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.received-comment-layout {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.received-comment-detail {
+  align-self: start;
+  max-height: 100%;
+}
+
+@container received-comments (width >= 43rem) {
+  .received-comment-layout[data-detail-open="true"] {
+    grid-template-columns: minmax(0, 5fr) minmax(17rem, 3fr);
+  }
+}
+
+@container received-comments (width < 43rem) {
+  .received-comment-layout[data-detail-open="true"] > .received-comment-list {
+    display: none;
+  }
+}
+
 .workspace-title {
   font-size: clamp(1.5rem, 1.2rem + .65vw, 1.75rem);
   font-weight: 650;

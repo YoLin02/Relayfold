@@ -22,14 +22,13 @@ class DouyinSubmissionTest(unittest.IsolatedAsyncioTestCase):
         self.media = self.root / "fixture.mp4"
         self.media.write_bytes(b"fake media for isolated test")
         self.worker = Worker(self.root)
-        self.addCleanup(self.worker.store.db.close)
         self.worker.changed = lambda: None
         browser = self.worker.browser
         playwright = await async_playwright().start()
         self.addAsyncCleanup(playwright.stop)
         chromium = await playwright.chromium.launch(channel="chrome", headless=True)
         self.addAsyncCleanup(chromium.close)
-        self.addAsyncCleanup(browser.shutdown)
+        self.addAsyncCleanup(self.worker.shutdown)
         self.context = await chromium.new_context(service_workers="block")
         self.page = await self.context.new_page()
         self.release_response = asyncio.Event()

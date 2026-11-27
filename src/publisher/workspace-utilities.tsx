@@ -72,7 +72,7 @@ export function WorkspaceUtilities({ workspace }: { workspace: PublisherWorkspac
               disabled={workspace.isBusy} onSelect={() => workspace.jumpToGroup(group.id)}>{group.name}</CommandItem>)}
           </CommandGroup>
           <CommandGroup heading="跳转">
-            {navigation.map(({ id, label, icon: Icon }) => <CommandItem key={id} value={label}
+            {navigation.map(({ id, label, icon: Icon }) => <CommandItem key={id} value={label} keywords={id === 'comments' ? ['评论', '私信'] : undefined}
               onSelect={() => workspace.changeView(id)}><Icon />{label}</CommandItem>)}
             <CommandItem value="设置" onSelect={() => workspace.changeView('settings')}><Settings />设置</CommandItem>
           </CommandGroup>
